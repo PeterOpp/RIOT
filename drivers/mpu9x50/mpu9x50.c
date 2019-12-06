@@ -58,7 +58,7 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t rate);
 int acquire_bus(const mpu9x50_t *dev);
 void release_bus(const mpu9x50_t *dev);
 void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data);
-uint8_t read_register(const mpu9x50_t *dev, uint8_t regAddress);
+void read_register(const mpu9x50_t *dev, uint8_t regAddress, void *target, uint8_t flags);
 void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length);
 
 /*---------------------------------------------------------------------------*
@@ -104,7 +104,7 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
     /* Enable all sensors */
     acquire_bus(dev);
     write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL);
-    i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, &temp, 0);
+    read_register(dev, MPU9X50_PWR_MGMT_2_REG, &temp, 0);
     temp &= ~(MPU9X50_PWR_ACCEL | MPU9X50_PWR_GYRO);
     write_register(dev, MPU9X50_PWR_MGMT_2_REG, temp);
     release_bus(dev);
@@ -127,7 +127,7 @@ int mpu9x50_set_accel_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Read current power management 2 configuration */
-    i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
+    read_register(dev, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
     /* Prepare power register settings */
     if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
         pwr_1_setting = MPU9X50_PWR_WAKEUP;
@@ -168,7 +168,7 @@ int mpu9x50_set_gyro_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Read current power management 2 configuration */
-    i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
+    read_register(dev, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
     /* Prepare power register settings */
     if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
         /* Set clock to pll */
@@ -216,7 +216,7 @@ int mpu9x50_set_compass_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Read current user control configuration */
-    i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_USER_CTRL_REG, &usr_ctrl_setting, 0);
+    read_register(dev, MPU9X50_USER_CTRL_REG, &usr_ctrl_setting, 0);
     /* Prepare power register settings */
     if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
         pwr_1_setting = MPU9X50_PWR_WAKEUP;
@@ -275,7 +275,7 @@ int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output)
         return -1;
     }
     /* Read raw data */
-    i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_GYRO_START_REG, data, 6, 0);
+    read_registers(dev, MPU9X50_GYRO_START_REG, data, 6);
     /* Release the bus */
     release_bus(dev);
 
@@ -318,7 +318,7 @@ int mpu9x50_read_accel(const mpu9x50_t *dev, mpu9x50_results_t *output)
         return -1;
     }
     /* Read raw data */
-    i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_ACCEL_START_REG, data, 6, 0);
+    read_registers(dev, MPU9X50_ACCEL_START_REG, data, 6);
     /* Release the bus */
     release_bus(dev);
 
@@ -342,7 +342,7 @@ int mpu9x50_read_compass(const mpu9x50_t *dev, mpu9x50_results_t *output)
         return -1;
     }
     /* Read raw data */
-    i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_EXT_SENS_DATA_START_REG, data, 6, 0);
+    read_registers(dev, MPU9X50_EXT_SENS_DATA_START_REG, data, 6);
     /* Release the bus */
     release_bus(dev);
 
@@ -375,7 +375,7 @@ int mpu9x50_read_temperature(const mpu9x50_t *dev, int32_t *output)
         return -1;
     }
     /* Read raw temperature value */
-    i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_TEMP_START_REG, &data, 2, 0);
+    read_registers(dev, MPU9X50_TEMP_START_REG, (void*) &data, 2);
     /* Release the bus */
     release_bus(dev);
 
@@ -575,7 +575,7 @@ static int compass_init(mpu9x50_t *dev)
 static void conf_bypass(const mpu9x50_t *dev, uint8_t bypass_enable)
 {
    uint8_t data;
-   i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_USER_CTRL_REG, &data, 0);
+   read_register(dev, MPU9X50_USER_CTRL_REG, &data, 0);
 
    if (bypass_enable) {
        data &= ~(BIT_I2C_MST_EN);
@@ -625,23 +625,21 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t half_rate)
 }
 
 int acquire_bus(const mpu9x50_t *dev) {
-    return i2c_acquire(DEV_I2C);
+    return i2c_acquire(dev->params.i2c);
 }
 
 void release_bus(const mpu9x50_t *dev) {
-    i2c_release(DEV_I2C);
+    i2c_release(dev->params.i2c);
 }
 
 void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data) {
     i2c_write_reg(dev->params.i2c, DEV_ADDR, regAddress, data, 0);
 }
 
-uint8_t read_register(const mpu9x50_t *dev, uint8_t regAddress) {
-    uint8_t data;
-    i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, &data, 0);
-    return data;
+void read_register(const mpu9x50_t *dev, uint8_t regAddress, void *target, uint8_t flags) {
+    i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, target, flags);
 }
 
 void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length) {
-    i2c_read_regs(DEV_I2C, DEV_ADDR, regAddress, buffer, length, 0);
+    i2c_read_regs(dev->params.i2c, DEV_ADDR, regAddress, buffer, length, 0);
 }
