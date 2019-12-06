@@ -55,6 +55,12 @@ static int compass_init(mpu9x50_t *dev);
 static void conf_bypass(const mpu9x50_t *dev, uint8_t bypass_enable);
 static void conf_lpf(const mpu9x50_t *dev, uint16_t rate);
 
+int acquire_bus(const mpu9x50_t *dev);
+void release_bus(const mpu9x50_t *dev);
+void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data);
+uint8_t read_register(const mpu9x50_t *dev, uint8_t regAddress);
+void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length);
+
 /*---------------------------------------------------------------------------*
  *                          MPU9X50 Core API                                 *
  *---------------------------------------------------------------------------*/
@@ -68,15 +74,15 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
     dev->conf = DEFAULT_STATUS;
 
     /* Acquire exclusive access */
-    i2c_acquire(DEV_I2C);
+    acquire_bus(dev);
 
     /* Reset MPU9X50 registers and afterwards wake up the chip */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_RESET, 0);
+    write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_RESET);
     xtimer_usleep(MPU9X50_RESET_SLEEP_US);
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_WAKEUP, 0);
+    write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_WAKEUP);
 
     /* Release the bus, it is acquired again inside each function */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     /* Set default full scale ranges and sample rate */
     mpu9x50_set_gyro_fsr(dev, MPU9X50_GYRO_FSR_2000DPS);
@@ -84,24 +90,24 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
     mpu9x50_set_sample_rate(dev, dev->params.sample_rate);
 
     /* Disable interrupt generation */
-    i2c_acquire(DEV_I2C);
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_INT_ENABLE_REG, REG_RESET, 0);
+    acquire_bus(dev);
+    write_register(dev, MPU9X50_INT_ENABLE_REG, REG_RESET);
 
     /* Initialize magnetometer */
     if (compass_init(dev)) {
-        i2c_release(DEV_I2C);
+        release_bus(dev);
         return -2;
     }
     /* Release the bus, it is acquired again inside each function */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
     mpu9x50_set_compass_sample_rate(dev, 10);
     /* Enable all sensors */
-    i2c_acquire(DEV_I2C);
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL, 0);
+    acquire_bus(dev);
+    write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL);
     i2c_read_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, &temp, 0);
     temp &= ~(MPU9X50_PWR_ACCEL | MPU9X50_PWR_GYRO);
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, temp, 0);
-    i2c_release(DEV_I2C);
+    write_register(dev, MPU9X50_PWR_MGMT_2_REG, temp);
+    release_bus(dev);
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
 
     return 0;
@@ -116,7 +122,7 @@ int mpu9x50_set_accel_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
 
@@ -134,13 +140,13 @@ int mpu9x50_set_accel_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     /* Configure power management 1 register if needed */
     if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF)
             && (dev->conf.compass_pwr == MPU9X50_SENSOR_PWR_OFF)) {
-        i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting, 0);
+        write_register(dev, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting);
     }
     /* Enable/disable accelerometer standby in power management 2 register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, pwr_2_setting, 0);
+    write_register(dev, MPU9X50_PWR_MGMT_2_REG, pwr_2_setting);
 
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     dev->conf.accel_pwr = pwr_conf;
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
@@ -157,7 +163,7 @@ int mpu9x50_set_gyro_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
 
@@ -166,7 +172,7 @@ int mpu9x50_set_gyro_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     /* Prepare power register settings */
     if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
         /* Set clock to pll */
-        i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL, 0);
+        write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL);
         pwr_2_setting &= ~(MPU9X50_PWR_GYRO);
     }
     else {
@@ -185,10 +191,10 @@ int mpu9x50_set_gyro_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
         pwr_2_setting |= MPU9X50_PWR_GYRO;
     }
     /* Enable/disable gyroscope standby in power management 2 register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_2_REG, pwr_2_setting, 0);
+    write_register(dev, MPU9X50_PWR_MGMT_2_REG, pwr_2_setting);
 
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     dev->conf.gyro_pwr = pwr_conf;
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
@@ -205,7 +211,7 @@ int mpu9x50_set_compass_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     }
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
 
@@ -225,15 +231,15 @@ int mpu9x50_set_compass_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
     /* Configure power management 1 register if needed */
     if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF)
             && (dev->conf.accel_pwr == MPU9X50_SENSOR_PWR_OFF)) {
-        i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting, 0);
+        write_register(dev, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting);
     }
     /* Configure mode writing by slave line 1 */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE1_DATA_OUT_REG, s1_do_setting, 0);
+    write_register(dev, MPU9X50_SLAVE1_DATA_OUT_REG, s1_do_setting);
     /* Enable/disable I2C master mode */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_USER_CTRL_REG, usr_ctrl_setting, 0);
+    write_register(dev, MPU9X50_USER_CTRL_REG, usr_ctrl_setting);
 
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     dev->conf.compass_pwr = pwr_conf;
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
@@ -265,13 +271,13 @@ int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output)
     }
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
     /* Read raw data */
     i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_GYRO_START_REG, data, 6, 0);
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     /* Normalize data according to configured full scale range */
     temp = (data[0] << 8) | data[1];
@@ -308,13 +314,13 @@ int mpu9x50_read_accel(const mpu9x50_t *dev, mpu9x50_results_t *output)
     }
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
     /* Read raw data */
     i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_ACCEL_START_REG, data, 6, 0);
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     /* Normalize data according to configured full scale range */
     temp = (data[0] << 8) | data[1];
@@ -332,13 +338,13 @@ int mpu9x50_read_compass(const mpu9x50_t *dev, mpu9x50_results_t *output)
     uint8_t data[6];
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
     /* Read raw data */
     i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_EXT_SENS_DATA_START_REG, data, 6, 0);
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     output->x_axis = (data[1] << 8) | data[0];
     output->y_axis = (data[3] << 8) | data[2];
@@ -365,13 +371,13 @@ int mpu9x50_read_temperature(const mpu9x50_t *dev, int32_t *output)
     uint16_t data;
 
     /* Acquire exclusive access */
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
     /* Read raw temperature value */
     i2c_read_regs(DEV_I2C, DEV_ADDR, MPU9X50_TEMP_START_REG, &data, 2, 0);
     /* Release the bus */
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     data = htons(data);
 
@@ -391,12 +397,12 @@ int mpu9x50_set_gyro_fsr(mpu9x50_t *dev, mpu9x50_gyro_ranges_t fsr)
         case MPU9X50_GYRO_FSR_500DPS:
         case MPU9X50_GYRO_FSR_1000DPS:
         case MPU9X50_GYRO_FSR_2000DPS:
-            if (i2c_acquire(DEV_I2C)) {
+            if (acquire_bus(dev)) {
                 return -1;
             }
             i2c_write_reg(DEV_I2C, DEV_ADDR,
                     MPU9X50_GYRO_CFG_REG, (fsr << 3), 0);
-            i2c_release(DEV_I2C);
+            release_bus(dev);
             dev->conf.gyro_fsr = fsr;
             break;
         default:
@@ -417,12 +423,12 @@ int mpu9x50_set_accel_fsr(mpu9x50_t *dev, mpu9x50_accel_ranges_t fsr)
         case MPU9X50_ACCEL_FSR_4G:
         case MPU9X50_ACCEL_FSR_8G:
         case MPU9X50_ACCEL_FSR_16G:
-            if (i2c_acquire(DEV_I2C)) {
+            if (acquire_bus(dev)) {
                 return -1;
             }
             i2c_write_reg(DEV_I2C, DEV_ADDR,
                     MPU9X50_ACCEL_CFG_REG, (fsr << 3), 0);
-            i2c_release(DEV_I2C);
+            release_bus(dev);
             dev->conf.accel_fsr = fsr;
             break;
         default:
@@ -446,17 +452,17 @@ int mpu9x50_set_sample_rate(mpu9x50_t *dev, uint16_t rate)
     /* Compute divider to achieve desired sample rate and write to rate div register */
     divider = (1000 / rate - 1);
 
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_RATE_DIV_REG, divider, 0);
+    write_register(dev, MPU9X50_RATE_DIV_REG, divider);
 
     /* Store configured sample rate */
     dev->conf.sample_rate = 1000 / (((uint16_t) divider) + 1);
 
     /* Always set LPF to a maximum of half the configured sampling rate */
     conf_lpf(dev, (dev->conf.sample_rate >> 1));
-    i2c_release(DEV_I2C);
+    release_bus(dev);
 
     return 0;
 }
@@ -476,11 +482,11 @@ int mpu9x50_set_compass_sample_rate(mpu9x50_t *dev, uint8_t rate)
     /* Compute divider to achieve desired sample rate and write to slave ctrl register */
     divider = (dev->conf.sample_rate / rate - 1);
 
-    if (i2c_acquire(DEV_I2C)) {
+    if (acquire_bus(dev)) {
         return -1;
     }
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE4_CTRL_REG, divider, 0);
-    i2c_release(DEV_I2C);
+    write_register(dev, MPU9X50_SLAVE4_CTRL_REG, divider);
+    release_bus(dev);
 
     /* Store configured sample rate */
     dev->conf.compass_sample_rate = dev->conf.sample_rate / (((uint16_t) divider) + 1);
@@ -530,24 +536,24 @@ static int compass_init(mpu9x50_t *dev)
     conf_bypass(dev, 0);
 
     /* Configure MPU9X50 for single master mode */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_I2C_MST_REG, BIT_WAIT_FOR_ES, 0);
+    write_register(dev, MPU9X50_I2C_MST_REG, BIT_WAIT_FOR_ES);
 
     /* Set up slave line 0 */
     /* Slave line 0 reads the compass data */
     i2c_write_reg(DEV_I2C, DEV_ADDR,
             MPU9X50_SLAVE0_ADDR_REG, (BIT_SLAVE_RW | DEV_COMP_ADDR), 0);
     /* Slave line 0 read starts at compass data register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE0_REG_REG, COMPASS_DATA_START_REG, 0);
+    write_register(dev, MPU9X50_SLAVE0_REG_REG, COMPASS_DATA_START_REG);
     /* Enable slave line 0 and configure read length to 6 consecutive registers */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE0_CTRL_REG, (BIT_SLAVE_EN | 0x06), 0);
+    write_register(dev, MPU9X50_SLAVE0_CTRL_REG, (BIT_SLAVE_EN | 0x06));
 
     /* Set up slave line 1 */
     /* Slave line 1 writes to the compass */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE1_ADDR_REG, DEV_COMP_ADDR, 0);
+    write_register(dev, MPU9X50_SLAVE1_ADDR_REG, DEV_COMP_ADDR);
     /* Slave line 1 write starts at compass control register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE1_REG_REG, COMPASS_CNTL_REG, 0);
+    write_register(dev, MPU9X50_SLAVE1_REG_REG, COMPASS_CNTL_REG);
     /* Enable slave line 1 and configure write length to 1 register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_SLAVE1_CTRL_REG, (BIT_SLAVE_EN | 0x01), 0);
+    write_register(dev, MPU9X50_SLAVE1_CTRL_REG, (BIT_SLAVE_EN | 0x01));
     /* Configure data which is written by slave line 1 to compass control */
     i2c_write_reg(DEV_I2C, DEV_ADDR,
             MPU9X50_SLAVE1_DATA_OUT_REG, MPU9X50_COMP_SINGLE_MEASURE, 0);
@@ -556,7 +562,7 @@ static int compass_init(mpu9x50_t *dev)
     i2c_write_reg(DEV_I2C, DEV_ADDR,
             MPU9X50_I2C_DELAY_CTRL_REG, (BIT_SLV0_DELAY_EN | BIT_SLV1_DELAY_EN), 0);
     /* Set I2C bus to VDD */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_YG_OFFS_TC_REG, BIT_I2C_MST_VDDIO, 0);
+    write_register(dev, MPU9X50_YG_OFFS_TC_REG, BIT_I2C_MST_VDDIO);
 
     return 0;
 }
@@ -573,15 +579,15 @@ static void conf_bypass(const mpu9x50_t *dev, uint8_t bypass_enable)
 
    if (bypass_enable) {
        data &= ~(BIT_I2C_MST_EN);
-       i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_USER_CTRL_REG, data, 0);
+       write_register(dev, MPU9X50_USER_CTRL_REG, data);
        xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
-       i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_INT_PIN_CFG_REG, BIT_I2C_BYPASS_EN, 0);
+       write_register(dev, MPU9X50_INT_PIN_CFG_REG, BIT_I2C_BYPASS_EN);
    }
    else {
        data |= BIT_I2C_MST_EN;
-       i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_USER_CTRL_REG, data, 0);
+       write_register(dev, MPU9X50_USER_CTRL_REG, data);
        xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
-       i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_INT_PIN_CFG_REG, REG_RESET, 0);
+       write_register(dev, MPU9X50_INT_PIN_CFG_REG, REG_RESET);
    }
 }
 
@@ -615,5 +621,27 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t half_rate)
     }
 
     /* Write LPF setting to configuration register */
-    i2c_write_reg(DEV_I2C, DEV_ADDR, MPU9X50_LPF_REG, lpf_setting, 0);
+    write_register(dev, MPU9X50_LPF_REG, lpf_setting);
+}
+
+int acquire_bus(const mpu9x50_t *dev) {
+    return i2c_acquire(DEV_I2C);
+}
+
+void release_bus(const mpu9x50_t *dev) {
+    i2c_release(DEV_I2C);
+}
+
+void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data) {
+    i2c_write_reg(dev->params.i2c, DEV_ADDR, regAddress, data, 0);
+}
+
+uint8_t read_register(const mpu9x50_t *dev, uint8_t regAddress) {
+    uint8_t data;
+    i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, &data, 0);
+    return data;
+}
+
+void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length) {
+    i2c_read_regs(DEV_I2C, DEV_ADDR, regAddress, buffer, length, 0);
 }
