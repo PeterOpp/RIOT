@@ -351,6 +351,7 @@ endif
 
 ifneq (,$(filter mpu9%50,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+  FEATURES_REQUIRED += periph_spi
   USEMODULE += xtimer
   USEMODULE += mpu9x50
 endif

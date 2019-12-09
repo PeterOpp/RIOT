@@ -64,6 +64,7 @@
 #define MPU9X50_FIFO_COUNT_START_REG    (0x72)
 #define MPU9X50_FIFO_RW_REG             (0x74)
 #define MPU9X50_WHO_AM_I_REG            (0x75)
+#define MPU9X50_I2CDIS_REG              (0x0F)
 /** @} */
 
  /**
@@ -95,6 +96,14 @@
 #define BIT_SLAVE_RW                    (0x80)
 #define BIT_SLAVE_EN                    (0x80)
 #define BIT_DMP_EN                      (0x80)
+/** @} */
+
+/**
+ * @name MPU9x50 SPI definitions
+ * @{
+ */
+#define SPI_READ_WRITE_MASK             (0x80)
+
 /** @} */
 
 #ifdef __cplusplus

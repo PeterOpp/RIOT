@@ -23,6 +23,7 @@
 #include "mpu9x50.h"
 #include "mpu9x50_regs.h"
 #include "periph/i2c.h"
+#include "periph/spi.h"
 #include "xtimer.h"
 #include "byteorder.h"
 
@@ -58,7 +59,7 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t rate);
 int acquire_bus(const mpu9x50_t *dev);
 void release_bus(const mpu9x50_t *dev);
 void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data);
-void read_register(const mpu9x50_t *dev, uint8_t regAddress, void *target, uint8_t flags);
+void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags);
 void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length);
 
 /*---------------------------------------------------------------------------*
@@ -75,6 +76,20 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
 
     /* Acquire exclusive access */
     acquire_bus(dev);
+
+    uint8_t whoami = 0;
+    if (params->use_spi) {
+        printf("Configuring SPI\n");
+        spi_init(dev->params.spi);
+        int res = spi_init_cs(dev->params.spi, dev->params.spi_cs);
+        if (res < 0) {
+            printf("NO SPI\n");
+        }   
+        printf("MOU9X50: init on SPI_DEV(%u)\n", dev->params.spi);
+        write_register(dev, MPU9X50_I2CDIS_REG, 0b00011011);
+    }
+    read_register(dev, MPU9X50_WHO_AM_I_REG, &whoami, 0);
+    printf("Whoami is 0x%x\n", whoami);
 
     /* Reset MPU9X50 registers and afterwards wake up the chip */
     write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_RESET);
@@ -625,19 +640,50 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t half_rate)
 }
 
 int acquire_bus(const mpu9x50_t *dev) {
-    return i2c_acquire(dev->params.i2c);
+    if (! dev->params.use_spi > 0) {
+        return i2c_acquire(dev->params.i2c);
+    }
+    return true;
 }
 
 void release_bus(const mpu9x50_t *dev) {
-    i2c_release(dev->params.i2c);
+    if (dev->params.use_spi > 0) {
+        i2c_release(dev->params.i2c);
+    }
 }
 
 void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data) {
-    i2c_write_reg(dev->params.i2c, DEV_ADDR, regAddress, data, 0);
+    if (dev->params.use_spi > 0) {
+        mpu9x50_params_t params = dev->params;
+        regAddress &= ~SPI_READ_WRITE_MASK;
+        uint8_t success = spi_acquire(params.spi, params.spi_cs, params.spi_mode, params.spi_clk);
+        if (success != SPI_OK) {
+            printf("SPI Error: %d\n", success);
+        } else {
+            spi_transfer_reg(params.spi, params.spi_cs, regAddress, data);
+        }
+        spi_release(dev->params.spi);
+    }
+    else {
+        i2c_write_reg(dev->params.i2c, DEV_ADDR, regAddress, data, 0);
+    }
 }
 
-void read_register(const mpu9x50_t *dev, uint8_t regAddress, void *target, uint8_t flags) {
-    i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, target, flags);
+void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags) {
+    if (dev->params.use_spi) {
+        mpu9x50_params_t params = dev->params;
+        regAddress |= SPI_READ_WRITE_MASK;
+        uint8_t success = spi_acquire(params.spi, params.spi_cs, params.spi_mode, params.spi_clk);
+        if (success != SPI_OK) {
+            printf("SPI Error: %d\n", success);
+        } else {
+            *target = spi_transfer_reg(params.spi, params.spi_cs, regAddress, 0);
+        }
+        spi_release(dev->params.spi);
+    }
+    else {
+        i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, target, flags);
+    }
 }
 
 void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length) {

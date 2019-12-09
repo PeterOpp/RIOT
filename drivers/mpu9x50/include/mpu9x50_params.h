@@ -33,6 +33,7 @@ extern "C" {
  * @name   Default configuration parameters for the MPU9X50 driver
  * @{
  */
+
 #ifndef MPU9X50_PARAM_I2C
 #define MPU9X50_PARAM_I2C         I2C_DEV(0)
 #endif
@@ -47,7 +48,12 @@ extern "C" {
 #endif
 
 #ifndef MPU9X50_PARAMS
-#define MPU9X50_PARAMS            { .i2c         = MPU9X50_PARAM_I2C,       \
+#define MPU9X50_PARAMS            { .use_spi     = 0, \
+                                    .spi         = MPU9X50_PARAM_SPI, \
+                                    .spi_cs      = MPU9X50_PARAM_CS, \
+                                    .spi_clk     = MPU9X50_PARAM_CLK, \
+                                    .spi_mode    = SPI_MODE_3, \
+                                    .i2c         = MPU9X50_PARAM_I2C,       \
                                     .addr        = MPU9X50_PARAM_ADDR,      \
                                     .comp_addr   = MPU9X50_PARAM_COMP_ADDR, \
                                     .sample_rate = MPU9X50_PARAM_SAMPLE_RATE }

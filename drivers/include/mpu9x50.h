@@ -27,6 +27,7 @@
 #define MPU9X50_H
 
 #include "periph/i2c.h"
+#include "periph/spi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -183,6 +184,11 @@ typedef struct {
  * @brief   Device initialization parameters
  */
 typedef struct {
+    bool use_spi;               /**< If true, uses SPI, if false, uses I2C */
+    spi_t spi;
+    spi_cs_t spi_cs;
+    spi_mode_t spi_mode;
+    spi_clk_t spi_clk;
     i2c_t i2c;                  /**< I2C device which is used */
     uint8_t addr;               /**< Hardware address of the MPU-9X50 */
     uint8_t comp_addr;          /**< Address of the MPU-9X50s compass */
