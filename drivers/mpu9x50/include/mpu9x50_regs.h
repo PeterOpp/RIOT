@@ -61,7 +61,8 @@
 #define MPU9X50_USER_CTRL_REG           (0x6A)
 #define MPU9X50_PWR_MGMT_1_REG          (0x6B)
 #define MPU9X50_PWR_MGMT_2_REG          (0x6C)
-#define MPU9X50_FIFO_COUNT_START_REG    (0x72)
+#define MPU9X50_FIFO_COUNT_H_REG        (0x72)
+#define MPU9X50_FIFO_COUNT_L_REG        (0x73)
 #define MPU9X50_FIFO_RW_REG             (0x74)
 #define MPU9X50_WHO_AM_I_REG            (0x75)
 #define MPU9X50_I2CDIS_REG              (0x0F)
@@ -96,14 +97,23 @@
 #define BIT_SLAVE_RW                    (0x80)
 #define BIT_SLAVE_EN                    (0x80)
 #define BIT_DMP_EN                      (0x80)
+#define BIT_FIFO_EN_ACC                 (0x08)
+#define BIT_FIFO_EN_TEMP                (0x80)
+#define BIT_FIFO_EN_GYRO_X              (0x40)
+#define BIT_FIFO_EN_GYRO_Y              (0x20)
+#define BIT_FIFO_EN_GYRO_Z              (0x10)
+#define BIT_USR_CTRL_FIFO_EN            (0x40)
+#define BIT_USR_CTRL_FIFO_RST           (0x04)
+
 /** @} */
+
+
 
 /**
  * @name MPU9x50 SPI definitions
  * @{
  */
 #define SPI_READ_WRITE_MASK             (0x80)
-
 /** @} */
 
 #ifdef __cplusplus

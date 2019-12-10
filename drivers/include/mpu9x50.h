@@ -263,6 +263,40 @@ int mpu9x50_set_compass_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf);
 int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output);
 
 /**
+ * @brief   Activate the FIFO for the buffering of accelerometer data
+ *
+ *  The MPU9X50 stores the samples from the accelerometer in the internal
+ *  FIFO queue.
+ *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ *
+ */
+void mpu9x50_enable_acc_fifo(const mpu9x50_t *dev);
+
+/**
+ * @brief  Read available accelerometer samples from the FIFO queue
+ *
+ *  The available samples, but at maximum len samples, are transferred from
+ *  the FIFO on the MPU9x50 to the buffer. The samples are normalized
+ *  with respect to the configured accelleromenter full-scale range.
+ *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ * @param[out] buffer       Result buffer in mG per axis per sample
+ * @param[in]  len          Buffer size in samples
+ *
+ * @return The number of samples actually read from the FIFO
+ */
+int mpu9x50_read_accel_from_fifo(const mpu9x50_t *dev, mpu9x50_results_t *buffer, uint16_t len);
+
+/**
+ * @brief  Reset FIFO queue
+ * 
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ *
+ */
+void mpu9x50_reset_fifo(const mpu9x50_t *dev);
+
+/**
  * @brief   Read acceleration values from the given MPU9X50 device, returned in mG
  *
  * The raw acceleration data is read from the sensor and normalized with respect to
