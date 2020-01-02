@@ -13,12 +13,8 @@ USEMODULE += gnrc_ipv6_default
 USEMODULE += gnrc_ipv6_nib_dns
 # use Ethernet as link-layer protocol
 ifeq (native,$(BOARD))
-  USEMODULE += netdev_tap
-
   TERMFLAGS ?= $(TAP)
 else
-  USEMODULE += stdio_ethos
-
   ETHOS_BAUDRATE ?= 115200
   CFLAGS += -DETHOS_BAUDRATE=$(ETHOS_BAUDRATE)
   TERMDEPS += ethos
@@ -31,8 +27,6 @@ USEMODULE += shell
 USEMODULE += shell_commands
 
 USEMODULE += posix_inet
-
-DISABLE_MODULE += test_utils_interactive_sync
 
 LOW_MEMORY_BOARDS := nucleo-f334r8 msb-430 msb-430h
 

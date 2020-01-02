@@ -17,6 +17,10 @@ ifneq (,$(filter gnrc_sock,$(USEMODULE)))
   endif
 endif
 
+ifneq (,$(filter gnrc_sock_async,$(USEMODULE)))
+  CFLAGS += -DSOCK_HAS_ASYNC
+endif
+
 ifneq (,$(filter posix_headers,$(USEMODULE)))
   USEMODULE_INCLUDES += $(RIOTBASE)/sys/posix/include
 endif
@@ -78,13 +82,13 @@ endif
 
 ifneq (,$(filter printf_float,$(USEMODULE)))
   ifneq (,$(filter newlib_nano,$(USEMODULE)))
-    export LINKFLAGS += -u _printf_float
+    LINKFLAGS += -u _printf_float
   endif
 endif
 
 ifneq (,$(filter scanf_float,$(USEMODULE)))
   ifneq (,$(filter newlib_nano,$(USEMODULE)))
-    export LINKFLAGS += -u _scanf_float
+    LINKFLAGS += -u _scanf_float
   endif
 endif
 

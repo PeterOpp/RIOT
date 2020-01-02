@@ -30,15 +30,20 @@ extern "C" {
 #endif
 
 /**
- * @brief maximum timer drift in percentage
+ * @defgroup net_gnrc_lorawan_conf GNRC LoRaWAN compile configurations
+ * @ingroup net_gnrc_conf
+ * @{
+ */
+/**
+ * @brief maximum timer drift in per mille
  *
  * @note this is only a workaround to compensate inaccurate timers.
  *
- * E.g a value of 0.1 means there's a positive drift of 0.1% (set timeout to
+ * E.g a value of 1 means there's a positive drift of 0.1% (set timeout to
  * 1000 ms => triggers after 1001 ms)
  */
 #ifndef CONFIG_GNRC_LORAWAN_TIMER_DRIFT
-#define CONFIG_GNRC_LORAWAN_TIMER_DRIFT 1
+#define CONFIG_GNRC_LORAWAN_TIMER_DRIFT 10
 #endif
 
 /**
@@ -47,6 +52,7 @@ extern "C" {
 #ifndef CONFIG_GNRC_LORAWAN_MIN_SYMBOLS_TIMEOUT
 #define CONFIG_GNRC_LORAWAN_MIN_SYMBOLS_TIMEOUT 30
 #endif
+/** @} */
 
 #define GNRC_LORAWAN_REQ_STATUS_SUCCESS (0)     /**< MLME or MCPS request successful status */
 #define GNRC_LORAWAN_REQ_STATUS_DEFERRED (1)    /**< the MLME or MCPS confirm message is asynchronous */

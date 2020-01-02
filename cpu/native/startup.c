@@ -41,9 +41,11 @@
 
 #include "board_internal.h"
 #include "native_internal.h"
+#include "stdio_base.h"
 #include "tty_uart.h"
 
 #include "periph/init.h"
+#include "periph/pm.h"
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
@@ -390,9 +392,16 @@ extern init_func_t __init_array_start;
 extern init_func_t __init_array_end;
 #endif
 
+static void _reset_handler(void)
+{
+    pm_reboot();
+}
+
 __attribute__((constructor)) static void startup(int argc, char **argv, char **envp)
 {
     _native_init_syscalls();
+    /* initialize stdio as early as possible */
+    stdio_init();
 
     _native_argv = argv;
     _progname = argv[0];
@@ -576,6 +585,8 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
 
     periph_init();
     board_init();
+
+    register_interrupt(SIGUSR1, _reset_handler);
 
     puts("RIOT native hardware initialization complete.\n");
     irq_enable();

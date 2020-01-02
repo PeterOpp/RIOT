@@ -199,6 +199,7 @@ static size_t _fmt_descriptors_iface_alts(usbus_t *usbus,
          alt = alt->next) {
         usb_descriptor_interface_t usb_iface;
         _fmt_descriptor_iface(iface, &usb_iface);
+        len += sizeof(usb_descriptor_interface_t);
         usb_iface.alternate_setting = alts++;
         usb_iface.num_endpoints = _num_endpoints_alt(alt);
         usbus_control_slicer_put_bytes(usbus, (uint8_t *)&usb_iface,
@@ -260,6 +261,7 @@ size_t usbus_fmt_descriptor_conf(usbus_t *usbus)
     usbus_control_slicer_put_bytes(usbus, (uint8_t *)&conf, sizeof(conf));
     len += _fmt_descriptors_post(usbus, usbus->descr_gen);
     len += _fmt_descriptors_ifaces(usbus);
+    assert(len == conf.total_length);
     return len;
 }
 

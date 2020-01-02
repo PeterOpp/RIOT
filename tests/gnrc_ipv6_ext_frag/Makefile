@@ -12,11 +12,8 @@ CFLAGS += -DTEST_SUITES="gnrc_ipv6_ext_frag"
 CFLAGS += -DGNRC_IPV6_EXT_FRAG_LIMITS_POOL_SIZE=3
 
 ifeq (native,$(BOARD))
-  USEMODULE += netdev_tap
   TERMFLAGS ?= $(TAP)
 else
-  USEMODULE += stdio_ethos
-
   ETHOS_BAUDRATE ?= 115200
   CFLAGS += -DETHOS_BAUDRATE=$(ETHOS_BAUDRATE)
   TERMDEPS += ethos
@@ -43,8 +40,6 @@ USEMODULE += embunit
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
-
-DISABLE_MODULE += test_utils_interactive_sync
 
 # The test requires some setup and to be run as root
 # So it cannot currently be run

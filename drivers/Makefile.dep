@@ -130,6 +130,12 @@ ifneq (,$(filter ccs811,$(USEMODULE)))
   USEMODULE += xtimer
 endif
 
+ifneq (,$(filter dcf77,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_gpio
+  FEATURES_REQUIRED += periph_gpio_irq
+  USEMODULE += xtimer
+endif
+
 ifneq (,$(filter dht,$(USEMODULE)))
   USEMODULE += xtimer
   FEATURES_REQUIRED += periph_gpio
@@ -137,6 +143,11 @@ endif
 
 ifneq (,$(filter ds1307,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+endif
+
+ifneq (,$(filter ds18,$(USEMODULE)))
+    USEMODULE += xtimer
+    FEATURES_REQUIRED += periph_gpio
 endif
 
 ifneq (,$(filter ds3234,$(USEMODULE)))
@@ -156,11 +167,6 @@ endif
 
 ifneq (,$(filter dynamixel,$(USEMODULE)))
   USEMODULE += uart_half_duplex
-endif
-
-ifneq (,$(filter ds18,$(USEMODULE)))
-    USEMODULE += xtimer
-    FEATURES_REQUIRED += periph_gpio
 endif
 
 ifneq (,$(filter enc28j60,$(USEMODULE)))
@@ -185,6 +191,15 @@ ifneq (,$(filter ethos,$(USEMODULE)))
   USEMODULE += netdev_eth
   USEMODULE += random
   USEMODULE += tsrb
+endif
+
+ifneq (,$(filter dose,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_uart
+  USEMODULE += iolist
+  USEMODULE += netdev_eth
+  USEMODULE += random
+  USEMODULE += xtimer
+  FEATURES_REQUIRED += periph_gpio_irq
 endif
 
 ifneq (,$(filter feetech,$(USEMODULE)))
@@ -217,6 +232,11 @@ endif
 
 ifneq (,$(filter hts221,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+endif
+
+ifneq (,$(filter ili9341,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_spi
+  FEATURES_REQUIRED += periph_gpio
 endif
 
 ifneq (,$(filter ina2%,$(USEMODULE)))
@@ -519,7 +539,14 @@ endif
 
 ifneq (,$(filter sht3x,$(USEMODULE)))
   USEMODULE += xtimer
+  USEMODULE += checksum
   FEATURES_REQUIRED += periph_i2c
+endif
+
+ifneq (,$(filter shtc1,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_i2c
+  USEMODULE += xtimer
+  USEMODULE += checksum
 endif
 
 ifneq (,$(filter si114%,$(USEMODULE)))
@@ -659,10 +686,4 @@ ifneq (,$(filter xbee,$(USEMODULE)))
   USEMODULE += ieee802154
   USEMODULE += xtimer
   USEMODULE += netif
-endif
-
-ifneq (,$(filter dcf77,$(USEMODULE)))
-  FEATURES_REQUIRED += periph_gpio
-  FEATURES_REQUIRED += periph_gpio_irq
-  USEMODULE += xtimer
 endif

@@ -63,11 +63,15 @@ ifneq (,$(filter esp_eth,$(USEMODULE)))
 endif
 
 ifneq (,$(filter spiffs,$(USEMODULE)))
-  export RIOT_TEST_TIMEOUT = 300
+  export RIOT_TEST_TIMEOUT = 120
 endif
 
 ifneq (,$(filter littlefs,$(USEMODULE)))
-  export RIOT_TEST_TIMEOUT = 300
+  export RIOT_TEST_TIMEOUT = 120
+endif
+
+ifneq (,$(filter 4 5,$(LOG_LEVEL)))
+  USEMODULE += esp_log_startup
 endif
 
 # ESP32 pseudomodules
@@ -80,6 +84,8 @@ PSEUDOMODULES += esp_i2c_hw
 PSEUDOMODULES += esp_idf_newlib
 PSEUDOMODULES += esp_log_colored
 PSEUDOMODULES += esp_log_tagged
+PSEUDOMODULES += esp_log_startup
+PSEUDOMODULES += esp_rtc_timer
 PSEUDOMODULES += esp_spi_ram
 PSEUDOMODULES += esp_spiffs
 PSEUDOMODULES += esp_wifi_any
@@ -124,6 +130,12 @@ ifneq (,$(filter esp_wifi_any esp_eth,$(USEMODULE)))
   CFLAGS += -DSCHED_PRIO_LEVELS=32
 endif
 
+ifneq (,$(filter lwip,$(USEMODULE)))
+  # The thread for handling the WiFi hardware has the priority. The priority
+  # of the lwIP TCP/IP thread should be lower than this priority.
+  CFLAGS += -DTCPIP_THREAD_PRIO=2
+endif
+
 CFLAGS  += -DSDK_NOT_USED -DCONFIG_FREERTOS_UNICORE=1 -DESP_PLATFORM
 CFLAGS  += -DLOG_TAG_IN_BRACKETS
 CFLAGS  += -Wno-unused-parameter -Wformat=0
@@ -159,10 +171,14 @@ ifeq ($(QEMU), 1)
 endif
 
 ifneq (,$(filter esp_log_colored,$(USEMODULE)))
-    BOOTLOADER_BIN = bootloader_with_colors.bin
-else
-    BOOTLOADER_BIN = bootloader_without_colors.bin
+  BOOTLOADER_COLOR = _colors
 endif
+
+ifneq (,$(filter esp_log_startup,$(USEMODULE)))
+  BOOTLOADER_INFO = _info
+endif
+
+BOOTLOADER_BIN = bootloader$(BOOTLOADER_COLOR)$(BOOTLOADER_INFO).bin
 
 # LINKFLAGS += -Wl,--verbose
 

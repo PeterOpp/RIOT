@@ -74,6 +74,23 @@
 #define CONFIG_TCP_OVERSIZE_MSS 1
 #define LL_ALIGN(s)             (((uint32_t)s + 3) & 0xfffffffcU)
 
+/**
+ * The SDK interface of the WiFi module uses the lwIP `pbuf` structure for
+ * packets sent to and received from the WiFi interface. For compatibility
+ * reasons with the binary SDK libraries we need to incclude the SDK lwIP
+ * `pbuf` header here.
+ *
+ * To avoid compilation errors, we need to undefine all our pkg/lwIP settings
+ * that are also defined by SDK lwIP header files. These definitions do not
+ * affect the implementation of this module.
+ */
+#undef ETHARP_SUPPORT_STATIC_ENTRIES
+#undef LWIP_HAVE_LOOPIF
+#undef LWIP_NETIF_LOOPBACK
+#undef SO_REUSE
+#undef TCPIP_THREAD_PRIO
+#undef TCPIP_THREAD_STACKSIZE
+
 #include "lwip/pbuf.h"
 
 #endif /* MCU_ESP8266 */
@@ -513,12 +530,10 @@ static int _esp_wifi_send(netdev_t *netdev, const iolist_t *iolist)
 #if ENABLE_DEBUG
     ESP_WIFI_DEBUG("send %d byte", dev->tx_len);
 #if MODULE_OD && ENABLE_DEBUG_HEXDUMP
-    od_hex_dump(dev->tx_buf, dev->tx_le, OD_WIDTH_DEFAULT);
+    od_hex_dump(dev->tx_buf, dev->tx_len, OD_WIDTH_DEFAULT);
 #endif /* MODULE_OD && ENABLE_DEBUG_HEXDUMP */
 #endif
     critical_exit();
-
-    int ret = 0;
 
     /* send the the packet to the peer(s) mac address */
     if (esp_wifi_internal_tx(ESP_IF_WIFI_STA, dev->tx_buf, dev->tx_len) == ESP_OK) {
@@ -527,14 +542,13 @@ static int _esp_wifi_send(netdev_t *netdev, const iolist_t *iolist)
         _esp_wifi_send_is_in = false;
         netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
 #endif
+        return dev->tx_len;
     }
     else {
         _esp_wifi_send_is_in = false;
         ESP_WIFI_DEBUG("sending WiFi packet failed");
-        ret = -EIO;
+        return -EIO;
     }
-
-    return ret;
 }
 
 static int _esp_wifi_recv(netdev_t *netdev, void *buf, size_t len, void *info)

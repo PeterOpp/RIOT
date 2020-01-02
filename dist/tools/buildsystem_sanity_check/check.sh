@@ -83,6 +83,10 @@ UNEXPORTED_VARIABLES+=('PORT[ ?=:]' 'PORT$')
 EXPORTED_VARIABLES_ONLY_IN_VARS=()
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('CPU_ARCH')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('CPU_FAM')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('TOOLCHAIN')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('WERROR')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('WPEDANTIC')
+
 check_not_exporting_variables() {
     local patterns=()
     local pathspec=()
@@ -196,6 +200,7 @@ checks_tests_application_not_defined_in_makefile() {
     patterns+=(-e '^[[:space:]]*APPLICATION[[:space:]:+]=')
 
     pathspec+=('tests/**/Makefile')
+    pathspec+=(':!tests/external_board_native/Makefile')
 
     git -C "${RIOTBASE}" grep "${patterns[@]}" -- "${pathspec[@]}" \
         | error_with_message "Don't define APPLICATION in test Makefile"

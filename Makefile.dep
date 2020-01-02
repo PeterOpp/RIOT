@@ -2,8 +2,11 @@
 OLD_USEMODULE := $(sort $(USEMODULE))
 OLD_USEPKG := $(sort $(USEPKG))
 
+# include board specific application dependencies
+-include $(APPDIR)/Makefile.board.dep
+
 # include board dependencies
--include $(RIOTBOARD)/$(BOARD)/Makefile.dep
+-include $(BOARDSDIR)/$(BOARD)/Makefile.dep
 
 # include cpu dependencies
 -include $(RIOTCPU)/$(CPU)/Makefile.dep
@@ -108,6 +111,11 @@ endif
 
 ifneq (,$(filter gnrc_sock_%,$(USEMODULE)))
   USEMODULE += gnrc_sock
+endif
+
+ifneq (,$(filter gnrc_sock_async,$(USEMODULE)))
+  USEMODULE += sock_async
+  USEMODULE += gnrc_netapi_callbacks
 endif
 
 ifneq (,$(filter gnrc_sock_ip,$(USEMODULE)))
@@ -415,7 +423,7 @@ ifneq (,$(filter newlib,$(USEMODULE)))
   ifeq (,$(filter newlib_syscalls_%,$(USEMODULE)))
     USEMODULE += newlib_syscalls_default
   endif
-  ifeq (,$(filter stdio_rtt stdio_cdc_acm,$(USEMODULE)))
+  ifeq (,$(filter stdio_cdc_acm stdio_native stdio_null stdio_rtt,$(USEMODULE)))
     USEMODULE += stdio_uart
   endif
 endif
@@ -478,6 +486,7 @@ ifneq (,$(filter shell_commands,$(USEMODULE)))
   ifneq (,$(filter nimble_netif,$(USEMODULE)))
     USEMODULE += nimble_scanner
     USEMODULE += nimble_scanlist
+    USEMODULE += fmt
   endif
 endif
 
@@ -557,6 +566,10 @@ endif
 ifneq (,$(filter lwip_contrib,$(USEMODULE)))
   USEMODULE += sema
   USEMODULE += xtimer
+endif
+
+ifneq (,$(filter lwip_dhcp_auto,$(USEMODULE)))
+  USEMODULE += lwip_dhcp
 endif
 
 ifneq (,$(filter sema,$(USEMODULE)))

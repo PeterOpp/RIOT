@@ -20,10 +20,8 @@ CFLAGS += -DGNRC_TCP_MSL=$(MSL_US)
 CFLAGS += -DGNRC_TCP_CONNECTION_TIMEOUT_DURATION=$(TIMEOUT_US)
 
 ifeq (native,$(BOARD))
-  USEMODULE += netdev_tap
   TERMFLAGS ?= $(TAP)
 else
-  USEMODULE += stdio_ethos
   ETHOS_BAUDRATE ?= 115200
   CFLAGS += -DETHOS_BAUDRATE=$(ETHOS_BAUDRATE)
   TERMDEPS += ethos
@@ -38,8 +36,6 @@ USEMODULE += gnrc_pktbuf_cmd
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += od
-
-DISABLE_MODULE += test_utils_interactive_sync
 
 # Export used tap device to environment
 export TAPDEV = $(TAP)
