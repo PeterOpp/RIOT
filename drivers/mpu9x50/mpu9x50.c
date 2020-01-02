@@ -58,11 +58,13 @@ static int compass_init(mpu9x50_t *dev);
 static void conf_bypass(const mpu9x50_t *dev, uint8_t bypass_enable);
 static void conf_lpf(const mpu9x50_t *dev, uint16_t rate);
 
-int acquire_bus(const mpu9x50_t *dev);
-void release_bus(const mpu9x50_t *dev);
-void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data);
-void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags);
-void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length);
+inline int acquire_bus(const mpu9x50_t *dev);
+inline void release_bus(const mpu9x50_t *dev);
+inline void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data);
+inline void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags);
+inline void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length);
+inline float getFullRange(const mpu9x50_t *dev);
+void normalize_accel_sample(const mpu9x50_t *dev, uint8_t *rawBytes, mpu9x50_results_t *result);
 
 /*---------------------------------------------------------------------------*
  *                          MPU9X50 Core API                                 *
@@ -342,67 +344,33 @@ int mpu9x50_read_accel_from_fifo(const mpu9x50_t *dev, mpu9x50_results_t *buffer
     
     uint16_t lenInBytes = len * sizeof(mpu9x50_results_t);
     uint16_t bytesToRead = (available > lenInBytes) ? lenInBytes : available;
-    printf("A=%d, LiB=%d, btr=%d\n", available, lenInBytes, bytesToRead);
+    //printf("A=%d, LiB=%d, btr=%d\n", available, lenInBytes, bytesToRead);
     read_registers(dev, MPU9X50_FIFO_RW_REG, rawBuffer, bytesToRead);
 
-    //convert
-    int16_t tempX;
-    int16_t tempY;
-    int16_t tempZ;
-
-    float fsr;
-    switch (dev->conf.accel_fsr) {
-        case MPU9X50_ACCEL_FSR_2G:
-            fsr = 2000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_4G:
-            fsr = 4000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_8G:
-            fsr = 8000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_16G:
-            fsr = 16000.0;
-            break;
-        default:
-            return -2;
-    }
-
     for (uint16_t i = 0; i < bytesToRead/sizeof(mpu9x50_results_t); i++) {
-        uint16_t base = i * sizeof(mpu9x50_results_t);
-        /* Normalize data according to configured full scale range */
-        tempX = (rawBuffer[base + 0] << 8) | rawBuffer[base + 1];
-        tempY = (rawBuffer[base + 2] << 8) | rawBuffer[base + 3];
-        tempZ = (rawBuffer[base + 4] << 8) | rawBuffer[base + 5];
-        buffer[i].x_axis = (tempX * fsr) / MAX_VALUE;
-        buffer[i].y_axis = (tempY * fsr) / MAX_VALUE;
-        buffer[i].z_axis = (tempZ * fsr) / MAX_VALUE;
+        uint16_t offset = sizeof(mpu9x50_results_t) * i;
+        mpu9x50_results_t *results = (mpu9x50_results_t*) (rawBuffer + offset);
+        normalize_accel_sample(dev, rawBuffer + offset, results);
     }
     return bytesToRead / sizeof(mpu9x50_results_t);
 } 
 
+void normalize_accel_sample(const mpu9x50_t *dev, uint8_t *rawBytes, mpu9x50_results_t *result) {
+    float fsr = getFullRange(dev);
+    int16_t tempX;
+    int16_t tempY;
+    int16_t tempZ;
+    tempX = (rawBytes[0] << 8) | rawBytes[1];
+    tempY = (rawBytes[2] << 8) | rawBytes[3];
+    tempZ = (rawBytes[4] << 8) | rawBytes[5];
+    result->x_axis = (tempX * fsr) / MAX_VALUE;
+    result->y_axis = (tempY * fsr) / MAX_VALUE;
+    result->z_axis = (tempZ * fsr) / MAX_VALUE;
+}
+
 int mpu9x50_read_accel(const mpu9x50_t *dev, mpu9x50_results_t *output)
 {
     uint8_t data[6];
-    int16_t temp;
-    float fsr;
-
-    switch (dev->conf.accel_fsr) {
-        case MPU9X50_ACCEL_FSR_2G:
-            fsr = 2000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_4G:
-            fsr = 4000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_8G:
-            fsr = 8000.0;
-            break;
-        case MPU9X50_ACCEL_FSR_16G:
-            fsr = 16000.0;
-            break;
-        default:
-            return -2;
-    }
 
     /* Acquire exclusive access */
     if (acquire_bus(dev)) {
@@ -413,14 +381,7 @@ int mpu9x50_read_accel(const mpu9x50_t *dev, mpu9x50_results_t *output)
     /* Release the bus */
     release_bus(dev);
 
-    /* Normalize data according to configured full scale range */
-    temp = (data[0] << 8) | data[1];
-    output->x_axis = (temp * fsr) / MAX_VALUE;
-    temp = (data[2] << 8) | data[3];
-    output->y_axis = (temp * fsr) / MAX_VALUE;
-    temp = (data[4] << 8) | data[5];
-    output->z_axis = (temp * fsr) / MAX_VALUE;
-
+    normalize_accel_sample(dev, data, output);
     return 0;
 }
 
@@ -775,5 +736,20 @@ void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, u
     }
     else {
         i2c_read_regs(dev->params.i2c, DEV_ADDR, regAddress, buffer, length, 0);
+    }
+}
+
+float getFullRange(const mpu9x50_t *dev) {
+    switch (dev->conf.accel_fsr) {
+        case MPU9X50_ACCEL_FSR_2G:
+            return 2000.0;
+        case MPU9X50_ACCEL_FSR_4G:
+            return 4000.0;
+        case MPU9X50_ACCEL_FSR_8G:
+            return 8000.0;
+        case MPU9X50_ACCEL_FSR_16G:
+            return 16000.0;
+        default:
+            return -2;
     }
 }
