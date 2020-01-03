@@ -189,6 +189,7 @@ typedef struct {
     spi_cs_t spi_cs;
     spi_mode_t spi_mode;
     spi_clk_t spi_clk;
+    gpio_t int_pin;
     i2c_t i2c;                  /**< I2C device which is used */
     uint8_t addr;               /**< Hardware address of the MPU-9X50 */
     uint8_t comp_addr;          /**< Address of the MPU-9X50s compass */
@@ -272,6 +273,30 @@ int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output);
  *
  */
 void mpu9x50_enable_acc_fifo(const mpu9x50_t *dev);
+
+/**
+ * @brief Activate the interrupt pin and configure the FIFO_Overflow Interrupt
+ * *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ *
+ */
+void mpu9x50_enable_fifo_overflow_interrupt(const mpu9x50_t *dev);
+
+/**
+ * @brief Deactivates the interrupt pin and configure the FIFO_Overflow Interrupt
+ * *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ *
+ */
+void mpu9x50_disable_fifo_overflow_interrupt(const mpu9x50_t *dev);
+
+/**
+ * @brief Checks if the FIFO Overflow Interrupt is thrown
+ * *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ * @return                  True, if the interrupt has been thrown
+ */
+bool mpu9x50_check_fifo_overflow(const mpu9x50_t *dev);
 
 /**
  * @brief  Read available accelerometer samples from the FIFO queue

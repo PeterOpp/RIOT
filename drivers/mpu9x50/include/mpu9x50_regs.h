@@ -105,6 +105,23 @@
 #define BIT_USR_CTRL_FIFO_EN            (0x40)
 #define BIT_USR_CTRL_FIFO_RST           (0x04)
 
+#define BIT_INT_PIN_ACTL                (0x80)
+#define BIT_INT_PIN_OPEN                (0x40)
+#define BIT_INT_PIN_LATCH_INT_EN        (0x20)
+#define BIT_INT_PIN_ANYRD_2_CLR         (0x10)
+#define BIT_INT_PIN_ACTL_FSYNC          (0x08)
+#define BIT_INT_PIN_FSYNC_INT_MODE_EN   (0x04)
+#define BIT_INT_PIN_BYPASS_EN           (0x02)
+
+#define BIT_INT_EN_WOM_EN               (0x40)
+#define BIT_INT_EN_FIFO_OVERFLOW        (0x10)
+#define BIT_INT_EN_FSYNC                (0x08)
+#define BIT_INT_EN_RAW_RDY              (0x01)
+
+#define BIT_INT_STATUS_WOM_INT          (0x40)
+#define BIT_INT_STATUS_FIFO_OVERFLOW    (0x10)
+#define BIT_INT_STATUS_FSYNC            (0x08)
+#define BIT_INT_STATUS_EN_RAW_RDY       (0x01)
 /** @} */
 
 

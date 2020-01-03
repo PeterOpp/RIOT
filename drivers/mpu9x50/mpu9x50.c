@@ -24,20 +24,21 @@
 #include "mpu9x50_regs.h"
 #include "periph/i2c.h"
 #include "periph/spi.h"
+#include "periph/gpio.h"
 #include "xtimer.h"
 #include "byteorder.h"
 
-#define ENABLE_DEBUG        (1)
+#define ENABLE_DEBUG (1)
 #if ENABLE_DEBUG
 #include "debug.h"
 #endif
 
-#define REG_RESET           (0x00)
-#define MAX_VALUE           (0x7FFF)
+#define REG_RESET (0x00)
+#define MAX_VALUE (0x7FFF)
 
-#define DEV_I2C             (dev->params.i2c)
-#define DEV_ADDR            (dev->params.addr)
-#define DEV_COMP_ADDR       (dev->params.comp_addr)
+#define DEV_I2C (dev->params.i2c)
+#define DEV_ADDR (dev->params.addr)
+#define DEV_COMP_ADDR (dev->params.comp_addr)
 
 /* Default config settings */
 static const mpu9x50_status_t DEFAULT_STATUS = {
@@ -81,27 +82,30 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
     /* Acquire exclusive access */
     acquire_bus(dev);
 
-    if (params->use_spi) {
+    if (params->use_spi)
+    {
         printf("Configuring SPI\n");
         spi_init(dev->params.spi);
         int res = spi_init_cs(dev->params.spi, dev->params.spi_cs);
-        if (res < 0) {
+        if (res < 0)
+        {
             printf("NO SPI\n");
-        }   
+        }
         printf("MOU9X50: init on SPI_DEV(%u)\n", dev->params.spi);
         write_register(dev, MPU9X50_I2CDIS_REG, 0b00011011);
     }
 
-    #if ENABLE_DEBUG
-        uint8_t i2cdis = 0;
-        read_register(dev, MPU9X50_I2CDIS_REG, &i2cdis, 0);
-        printf("I2CDis = 0x%x", i2cdis);
-        uint8_t whoami = 0;
-        read_register(dev, MPU9X50_WHO_AM_I_REG, &whoami, 0);
-        if (whoami != 0x71) {
-            printf("Whoami is 0x%x\n", whoami);
-        }
-    #endif
+#if ENABLE_DEBUG
+    uint8_t i2cdis = 0;
+    read_register(dev, MPU9X50_I2CDIS_REG, &i2cdis, 0);
+    printf("I2CDis = 0x%x", i2cdis);
+    uint8_t whoami = 0;
+    read_register(dev, MPU9X50_WHO_AM_I_REG, &whoami, 0);
+    if (whoami != 0x71)
+    {
+        printf("Whoami is 0x%x\n", whoami);
+    }
+#endif
 
     /* Reset MPU9X50 registers and afterwards wake up the chip */
     write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_RESET);
@@ -121,25 +125,27 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
     write_register(dev, MPU9X50_INT_ENABLE_REG, REG_RESET);
 
     /* Initialize magnetometer */
-    if (dev->params.use_spi == 0) {
-        if (compass_init(dev)) {
+    if (dev->params.use_spi == 0)
+    {
+        if (compass_init(dev))
+        {
             release_bus(dev);
             return -2;
         }
-    } 
+    }
 
     /* Release the bus, it is acquired again inside each function */
     release_bus(dev);
     mpu9x50_set_compass_sample_rate(dev, 10);
     /* Enable all sensors */
-    
+
     acquire_bus(dev);
     write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL);
     read_register(dev, MPU9X50_PWR_MGMT_2_REG, &temp, 0);
     temp &= ~(MPU9X50_PWR_ACCEL | MPU9X50_PWR_GYRO);
     write_register(dev, MPU9X50_PWR_MGMT_2_REG, temp);
     release_bus(dev);
-    
+
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
 
     return 0;
@@ -149,29 +155,33 @@ int mpu9x50_set_accel_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
 {
     uint8_t pwr_1_setting, pwr_2_setting;
 
-    if (dev->conf.accel_pwr == pwr_conf) {
+    if (dev->conf.accel_pwr == pwr_conf)
+    {
         return 0;
     }
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
 
     /* Read current power management 2 configuration */
     read_register(dev, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
     /* Prepare power register settings */
-    if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
+    if (pwr_conf == MPU9X50_SENSOR_PWR_ON)
+    {
         pwr_1_setting = MPU9X50_PWR_WAKEUP;
         pwr_2_setting &= ~(MPU9X50_PWR_ACCEL);
     }
-    else {
+    else
+    {
         pwr_1_setting = BIT_PWR_MGMT1_SLEEP;
         pwr_2_setting |= MPU9X50_PWR_ACCEL;
     }
     /* Configure power management 1 register if needed */
-    if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF)
-            && (dev->conf.compass_pwr == MPU9X50_SENSOR_PWR_OFF)) {
+    if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF) && (dev->conf.compass_pwr == MPU9X50_SENSOR_PWR_OFF))
+    {
         write_register(dev, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting);
     }
     /* Enable/disable accelerometer standby in power management 2 register */
@@ -190,31 +200,36 @@ int mpu9x50_set_gyro_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
 {
     uint8_t pwr_2_setting;
 
-    if (dev->conf.gyro_pwr == pwr_conf) {
+    if (dev->conf.gyro_pwr == pwr_conf)
+    {
         return 0;
     }
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
 
     /* Read current power management 2 configuration */
     read_register(dev, MPU9X50_PWR_MGMT_2_REG, &pwr_2_setting, 0);
     /* Prepare power register settings */
-    if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
+    if (pwr_conf == MPU9X50_SENSOR_PWR_ON)
+    {
         /* Set clock to pll */
         write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_PLL);
         pwr_2_setting &= ~(MPU9X50_PWR_GYRO);
     }
-    else {
+    else
+    {
         /* Configure power management 1 register */
-        if ((dev->conf.accel_pwr == MPU9X50_SENSOR_PWR_OFF)
-                && (dev->conf.compass_pwr == MPU9X50_SENSOR_PWR_OFF)) {
+        if ((dev->conf.accel_pwr == MPU9X50_SENSOR_PWR_OFF) && (dev->conf.compass_pwr == MPU9X50_SENSOR_PWR_OFF))
+        {
             /* All sensors turned off, put the MPU-9X50 to sleep */
             write_register(dev, MPU9X50_PWR_MGMT_1_REG, BIT_PWR_MGMT1_SLEEP);
         }
-        else {
+        else
+        {
             /* Reset clock to internal oscillator */
             write_register(dev, MPU9X50_PWR_MGMT_1_REG, MPU9X50_PWR_WAKEUP);
         }
@@ -236,31 +251,35 @@ int mpu9x50_set_compass_power(mpu9x50_t *dev, mpu9x50_pwr_t pwr_conf)
 {
     uint8_t pwr_1_setting, usr_ctrl_setting, s1_do_setting;
 
-    if (dev->conf.compass_pwr == pwr_conf) {
+    if (dev->conf.compass_pwr == pwr_conf)
+    {
         return 0;
     }
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
 
     /* Read current user control configuration */
     read_register(dev, MPU9X50_USER_CTRL_REG, &usr_ctrl_setting, 0);
     /* Prepare power register settings */
-    if (pwr_conf == MPU9X50_SENSOR_PWR_ON) {
+    if (pwr_conf == MPU9X50_SENSOR_PWR_ON)
+    {
         pwr_1_setting = MPU9X50_PWR_WAKEUP;
         s1_do_setting = MPU9X50_COMP_SINGLE_MEASURE;
         usr_ctrl_setting |= BIT_I2C_MST_EN;
     }
-    else {
+    else
+    {
         pwr_1_setting = BIT_PWR_MGMT1_SLEEP;
         s1_do_setting = MPU9X50_COMP_POWER_DOWN;
         usr_ctrl_setting &= ~(BIT_I2C_MST_EN);
     }
     /* Configure power management 1 register if needed */
-    if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF)
-            && (dev->conf.accel_pwr == MPU9X50_SENSOR_PWR_OFF)) {
+    if ((dev->conf.gyro_pwr == MPU9X50_SENSOR_PWR_OFF) && (dev->conf.accel_pwr == MPU9X50_SENSOR_PWR_OFF))
+    {
         write_register(dev, MPU9X50_PWR_MGMT_1_REG, pwr_1_setting);
     }
     /* Configure mode writing by slave line 1 */
@@ -283,25 +302,27 @@ int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output)
     int16_t temp;
     float fsr;
 
-    switch (dev->conf.gyro_fsr) {
-        case MPU9X50_GYRO_FSR_250DPS:
-            fsr = 250.0;
-            break;
-        case MPU9X50_GYRO_FSR_500DPS:
-            fsr = 500.0;
-            break;
-        case MPU9X50_GYRO_FSR_1000DPS:
-            fsr = 1000.0;
-            break;
-        case MPU9X50_GYRO_FSR_2000DPS:
-            fsr = 2000.0;
-            break;
-        default:
-            return -2;
+    switch (dev->conf.gyro_fsr)
+    {
+    case MPU9X50_GYRO_FSR_250DPS:
+        fsr = 250.0;
+        break;
+    case MPU9X50_GYRO_FSR_500DPS:
+        fsr = 500.0;
+        break;
+    case MPU9X50_GYRO_FSR_1000DPS:
+        fsr = 1000.0;
+        break;
+    case MPU9X50_GYRO_FSR_2000DPS:
+        fsr = 2000.0;
+        break;
+    default:
+        return -2;
     }
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     /* Read raw data */
@@ -320,42 +341,47 @@ int mpu9x50_read_gyro(const mpu9x50_t *dev, mpu9x50_results_t *output)
     return 0;
 }
 
-void mpu9x50_enable_acc_fifo(const mpu9x50_t *dev) {
+void mpu9x50_enable_acc_fifo(const mpu9x50_t *dev)
+{
     uint8_t fifo_enable_reg = 0 | BIT_FIFO_EN_ACC;
     write_register(dev, MPU9X50_FIFO_EN_REG, fifo_enable_reg);
     uint8_t usr_ctrl_reg = 0;
     read_register(dev, MPU9X50_USER_CTRL_REG, &usr_ctrl_reg, 0);
     usr_ctrl_reg |= BIT_USR_CTRL_FIFO_EN;
-    write_register(dev,MPU9X50_USER_CTRL_REG, usr_ctrl_reg);
+    write_register(dev, MPU9X50_USER_CTRL_REG, usr_ctrl_reg);
 }
 
-void mpu9x50_reset_fifo(const mpu9x50_t *dev) {
+void mpu9x50_reset_fifo(const mpu9x50_t *dev)
+{
     uint8_t usr_ctrl_reg = 0;
     read_register(dev, MPU9X50_USER_CTRL_REG, &usr_ctrl_reg, 0);
     usr_ctrl_reg |= BIT_USR_CTRL_FIFO_RST;
     write_register(dev, MPU9X50_USER_CTRL_REG, usr_ctrl_reg);
 }
 
-int mpu9x50_read_accel_from_fifo(const mpu9x50_t *dev, mpu9x50_results_t *buffer, uint16_t len) {
+int mpu9x50_read_accel_from_fifo(const mpu9x50_t *dev, mpu9x50_results_t *buffer, uint16_t len)
+{
     uint8_t *rawBuffer = (uint8_t *)buffer;
     uint16_t fifoCnt;
-    read_registers(dev, MPU9X50_FIFO_COUNT_H_REG, (uint8_t*) &fifoCnt, 2);
+    read_registers(dev, MPU9X50_FIFO_COUNT_H_REG, (uint8_t *)&fifoCnt, 2);
     uint16_t available = (fifoCnt >> 8) | ((fifoCnt & 0x000F) << 8);
-    
+
     uint16_t lenInBytes = len * sizeof(mpu9x50_results_t);
     uint16_t bytesToRead = (available > lenInBytes) ? lenInBytes : available;
     //printf("A=%d, LiB=%d, btr=%d\n", available, lenInBytes, bytesToRead);
     read_registers(dev, MPU9X50_FIFO_RW_REG, rawBuffer, bytesToRead);
 
-    for (uint16_t i = 0; i < bytesToRead/sizeof(mpu9x50_results_t); i++) {
+    for (uint16_t i = 0; i < bytesToRead / sizeof(mpu9x50_results_t); i++)
+    {
         uint16_t offset = sizeof(mpu9x50_results_t) * i;
-        mpu9x50_results_t *results = (mpu9x50_results_t*) (rawBuffer + offset);
+        mpu9x50_results_t *results = (mpu9x50_results_t *)(rawBuffer + offset);
         normalize_accel_sample(dev, rawBuffer + offset, results);
     }
     return bytesToRead / sizeof(mpu9x50_results_t);
-} 
+}
 
-void normalize_accel_sample(const mpu9x50_t *dev, uint8_t *rawBytes, mpu9x50_results_t *result) {
+void normalize_accel_sample(const mpu9x50_t *dev, uint8_t *rawBytes, mpu9x50_results_t *result)
+{
     float fsr = getFullRange(dev);
     int16_t tempX;
     int16_t tempY;
@@ -373,7 +399,8 @@ int mpu9x50_read_accel(const mpu9x50_t *dev, mpu9x50_results_t *output)
     uint8_t data[6];
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     /* Read raw data */
@@ -390,7 +417,8 @@ int mpu9x50_read_compass(const mpu9x50_t *dev, mpu9x50_results_t *output)
     uint8_t data[6];
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     /* Read raw data */
@@ -403,12 +431,12 @@ int mpu9x50_read_compass(const mpu9x50_t *dev, mpu9x50_results_t *output)
     output->z_axis = (data[5] << 8) | data[4];
 
     /* Compute sensitivity adjustment */
-    output->x_axis = (int16_t) (((float)output->x_axis) *
-            ((((dev->conf.compass_x_adj - 128) * 0.5) / 128.0) + 1));
-    output->y_axis = (int16_t) (((float)output->y_axis) *
-            ((((dev->conf.compass_y_adj - 128) * 0.5) / 128.0) + 1));
-    output->z_axis = (int16_t) (((float)output->z_axis) *
-            ((((dev->conf.compass_z_adj - 128) * 0.5) / 128.0) + 1));
+    output->x_axis = (int16_t)(((float)output->x_axis) *
+                               ((((dev->conf.compass_x_adj - 128) * 0.5) / 128.0) + 1));
+    output->y_axis = (int16_t)(((float)output->y_axis) *
+                               ((((dev->conf.compass_y_adj - 128) * 0.5) / 128.0) + 1));
+    output->z_axis = (int16_t)(((float)output->z_axis) *
+                               ((((dev->conf.compass_z_adj - 128) * 0.5) / 128.0) + 1));
 
     /* Normalize data according to full-scale range */
     output->x_axis = output->x_axis * 0.3;
@@ -423,11 +451,12 @@ int mpu9x50_read_temperature(const mpu9x50_t *dev, int32_t *output)
     uint16_t data;
 
     /* Acquire exclusive access */
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     /* Read raw temperature value */
-    read_registers(dev, MPU9X50_TEMP_START_REG, (void*) &data, 2);
+    read_registers(dev, MPU9X50_TEMP_START_REG, (void *)&data, 2);
     /* Release the bus */
     release_bus(dev);
 
@@ -440,24 +469,27 @@ int mpu9x50_read_temperature(const mpu9x50_t *dev, int32_t *output)
 
 int mpu9x50_set_gyro_fsr(mpu9x50_t *dev, mpu9x50_gyro_ranges_t fsr)
 {
-    if (dev->conf.gyro_fsr == fsr) {
+    if (dev->conf.gyro_fsr == fsr)
+    {
         return 0;
     }
 
-    switch (fsr) {
-        case MPU9X50_GYRO_FSR_250DPS:
-        case MPU9X50_GYRO_FSR_500DPS:
-        case MPU9X50_GYRO_FSR_1000DPS:
-        case MPU9X50_GYRO_FSR_2000DPS:
-            if (acquire_bus(dev)) {
-                return -1;
-            }
-            write_register(dev, MPU9X50_GYRO_CFG_REG, (fsr << 3));
-            release_bus(dev);
-            dev->conf.gyro_fsr = fsr;
-            break;
-        default:
-            return -2;
+    switch (fsr)
+    {
+    case MPU9X50_GYRO_FSR_250DPS:
+    case MPU9X50_GYRO_FSR_500DPS:
+    case MPU9X50_GYRO_FSR_1000DPS:
+    case MPU9X50_GYRO_FSR_2000DPS:
+        if (acquire_bus(dev))
+        {
+            return -1;
+        }
+        write_register(dev, MPU9X50_GYRO_CFG_REG, (fsr << 3));
+        release_bus(dev);
+        dev->conf.gyro_fsr = fsr;
+        break;
+    default:
+        return -2;
     }
 
     return 0;
@@ -465,24 +497,27 @@ int mpu9x50_set_gyro_fsr(mpu9x50_t *dev, mpu9x50_gyro_ranges_t fsr)
 
 int mpu9x50_set_accel_fsr(mpu9x50_t *dev, mpu9x50_accel_ranges_t fsr)
 {
-    if (dev->conf.accel_fsr == fsr) {
+    if (dev->conf.accel_fsr == fsr)
+    {
         return 0;
     }
 
-    switch (fsr) {
-        case MPU9X50_ACCEL_FSR_2G:
-        case MPU9X50_ACCEL_FSR_4G:
-        case MPU9X50_ACCEL_FSR_8G:
-        case MPU9X50_ACCEL_FSR_16G:
-            if (acquire_bus(dev)) {
-                return -1;
-            }
-            write_register(dev, MPU9X50_ACCEL_CFG_REG, (fsr << 3));
-            release_bus(dev);
-            dev->conf.accel_fsr = fsr;
-            break;
-        default:
-            return -2;
+    switch (fsr)
+    {
+    case MPU9X50_ACCEL_FSR_2G:
+    case MPU9X50_ACCEL_FSR_4G:
+    case MPU9X50_ACCEL_FSR_8G:
+    case MPU9X50_ACCEL_FSR_16G:
+        if (acquire_bus(dev))
+        {
+            return -1;
+        }
+        write_register(dev, MPU9X50_ACCEL_CFG_REG, (fsr << 3));
+        release_bus(dev);
+        dev->conf.accel_fsr = fsr;
+        break;
+    default:
+        return -2;
     }
 
     return 0;
@@ -492,27 +527,30 @@ int mpu9x50_set_sample_rate(mpu9x50_t *dev, uint16_t rate)
 {
     uint8_t divider;
 
-    if ((rate < MPU9X50_MIN_SAMPLE_RATE) || (rate > MPU9X50_MAX_SAMPLE_RATE)) {
+    if ((rate < MPU9X50_MIN_SAMPLE_RATE) || (rate > MPU9X50_MAX_SAMPLE_RATE))
+    {
         return -2;
     }
-    else if (dev->conf.sample_rate == rate) {
+    else if (dev->conf.sample_rate == rate)
+    {
         return 0;
     }
 
     /* Compute divider to achieve desired sample rate and write to rate div register */
     divider = (1000 / rate - 1);
 
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     write_register(dev, MPU9X50_RATE_DIV_REG, divider);
 
-    uint8_t debug= 0;
+    uint8_t debug = 0;
     read_register(dev, MPU9X50_RATE_DIV_REG, &debug, 0);
     printf("Divider: expected = %d, real=%d\n", divider, debug);
 
     /* Store configured sample rate */
-    dev->conf.sample_rate = 1000 / (((uint16_t) divider) + 1);
+    dev->conf.sample_rate = 1000 / (((uint16_t)divider) + 1);
 
     /* Always set LPF to a maximum of half the configured sampling rate */
     conf_lpf(dev, (dev->conf.sample_rate >> 1));
@@ -525,27 +563,66 @@ int mpu9x50_set_compass_sample_rate(mpu9x50_t *dev, uint8_t rate)
 {
     uint8_t divider;
 
-    if ((rate < MPU9X50_MIN_COMP_SMPL_RATE) || (rate > MPU9X50_MAX_COMP_SMPL_RATE)
-            || (rate > dev->conf.sample_rate)) {
+    if ((rate < MPU9X50_MIN_COMP_SMPL_RATE) || (rate > MPU9X50_MAX_COMP_SMPL_RATE) || (rate > dev->conf.sample_rate))
+    {
         return -2;
     }
-    else if (dev->conf.compass_sample_rate == rate) {
+    else if (dev->conf.compass_sample_rate == rate)
+    {
         return 0;
     }
 
     /* Compute divider to achieve desired sample rate and write to slave ctrl register */
     divider = (dev->conf.sample_rate / rate - 1);
 
-    if (acquire_bus(dev)) {
+    if (acquire_bus(dev))
+    {
         return -1;
     }
     write_register(dev, MPU9X50_SLAVE4_CTRL_REG, divider);
     release_bus(dev);
 
     /* Store configured sample rate */
-    dev->conf.compass_sample_rate = dev->conf.sample_rate / (((uint16_t) divider) + 1);
+    dev->conf.compass_sample_rate = dev->conf.sample_rate / (((uint16_t)divider) + 1);
 
     return 0;
+}
+
+void mpu9x50_enable_fifo_overflow_interrupt(const mpu9x50_t *dev)
+{
+    /* Configure Interrupt Pin */
+    gpio_init(dev->params.int_pin, GPIO_IN);
+
+    /* Set Interrupt Config to keep high until status register is read*/
+    uint8_t reg = BIT_INT_PIN_LATCH_INT_EN;
+    write_register(dev, MPU9X50_INT_PIN_CFG_REG, reg);
+
+    /* Enable ONLY the overflow Interrupt */
+    reg = BIT_INT_EN_FIFO_OVERFLOW;
+    write_register(dev, MPU9X50_INT_ENABLE_REG, reg);
+
+    /*read status to clear interrupt */
+    read_register(dev, MPU9X50_INT_STATUS, &reg, 0);
+}
+
+void mpu9x50_disable_fifo_overflow_interrupt(const mpu9x50_t *dev)
+{
+    /* Disable ONLY the overflow Interrupt */
+    uint8_t reg = BIT_INT_EN_FIFO_OVERFLOW;
+    read_register(dev, MPU9X50_INT_ENABLE_REG, &reg, 0);
+    reg &= ~BIT_INT_EN_FIFO_OVERFLOW;
+    write_register(dev, MPU9X50_INT_ENABLE_REG, reg);
+}
+
+bool mpu9x50_check_fifo_overflow(const mpu9x50_t *dev)
+{
+    if (gpio_read(dev->params.int_pin))
+    {
+        uint8_t status;
+        read_register(dev, MPU9X50_INT_STATUS, &status, 0);
+        return (status & BIT_INT_STATUS_FIFO_OVERFLOW) > 0;
+    }
+    return false;
 }
 
 /*------------------------------------------------------------------------------------*/
@@ -566,7 +643,8 @@ static int compass_init(mpu9x50_t *dev)
 
     /* Check whether compass answers correctly */
     read_register(dev, COMPASS_WHOAMI_REG, data, 0);
-    if (data[0] != MPU9X50_COMP_WHOAMI_ANSWER) {
+    if (data[0] != MPU9X50_COMP_WHOAMI_ANSWER)
+    {
         DEBUG("[Error] Wrong answer from compass\n");
         return -1;
     }
@@ -625,21 +703,23 @@ static int compass_init(mpu9x50_t *dev)
  */
 static void conf_bypass(const mpu9x50_t *dev, uint8_t bypass_enable)
 {
-   uint8_t data;
-   read_register(dev, MPU9X50_USER_CTRL_REG, &data, 0);
+    uint8_t data;
+    read_register(dev, MPU9X50_USER_CTRL_REG, &data, 0);
 
-   if (bypass_enable) {
-       data &= ~(BIT_I2C_MST_EN);
-       write_register(dev, MPU9X50_USER_CTRL_REG, data);
-       xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
-       write_register(dev, MPU9X50_INT_PIN_CFG_REG, BIT_I2C_BYPASS_EN);
-   }
-   else {
-       data |= BIT_I2C_MST_EN;
-       write_register(dev, MPU9X50_USER_CTRL_REG, data);
-       xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
-       write_register(dev, MPU9X50_INT_PIN_CFG_REG, REG_RESET);
-   }
+    if (bypass_enable)
+    {
+        data &= ~(BIT_I2C_MST_EN);
+        write_register(dev, MPU9X50_USER_CTRL_REG, data);
+        xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
+        write_register(dev, MPU9X50_INT_PIN_CFG_REG, BIT_I2C_BYPASS_EN);
+    }
+    else
+    {
+        data |= BIT_I2C_MST_EN;
+        write_register(dev, MPU9X50_USER_CTRL_REG, data);
+        xtimer_usleep(MPU9X50_BYPASS_SLEEP_US);
+        write_register(dev, MPU9X50_INT_PIN_CFG_REG, REG_RESET);
+    }
 }
 
 /**
@@ -652,22 +732,28 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t half_rate)
     mpu9x50_lpf_t lpf_setting;
 
     /* Get target LPF configuration setting */
-    if (half_rate >= 188) {
+    if (half_rate >= 188)
+    {
         lpf_setting = MPU9X50_FILTER_188HZ;
     }
-    else if (half_rate >= 98) {
+    else if (half_rate >= 98)
+    {
         lpf_setting = MPU9X50_FILTER_98HZ;
     }
-    else if (half_rate >= 42) {
+    else if (half_rate >= 42)
+    {
         lpf_setting = MPU9X50_FILTER_42HZ;
     }
-    else if (half_rate >= 20) {
+    else if (half_rate >= 20)
+    {
         lpf_setting = MPU9X50_FILTER_20HZ;
     }
-    else if (half_rate >= 10) {
+    else if (half_rate >= 10)
+    {
         lpf_setting = MPU9X50_FILTER_10HZ;
     }
-    else {
+    else
+    {
         lpf_setting = MPU9X50_FILTER_5HZ;
     }
 
@@ -675,81 +761,105 @@ static void conf_lpf(const mpu9x50_t *dev, uint16_t half_rate)
     write_register(dev, MPU9X50_LPF_REG, lpf_setting);
 }
 
-int acquire_bus(const mpu9x50_t *dev) {
-    if (dev->params.use_spi <= 0) {
+int acquire_bus(const mpu9x50_t *dev)
+{
+    if (dev->params.use_spi <= 0)
+    {
         return i2c_acquire(dev->params.i2c);
     }
     return 0;
 }
 
-void release_bus(const mpu9x50_t *dev) {
-    if (dev->params.use_spi <= 0) {
+void release_bus(const mpu9x50_t *dev)
+{
+    if (dev->params.use_spi <= 0)
+    {
         i2c_release(dev->params.i2c);
     }
 }
 
-void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data) {
-    if (dev->params.use_spi > 0) {
+void write_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t data)
+{
+    if (dev->params.use_spi > 0)
+    {
         mpu9x50_params_t params = dev->params;
         regAddress &= ~SPI_READ_WRITE_MASK;
         uint8_t success = spi_acquire(params.spi, params.spi_cs, params.spi_mode, params.spi_clk);
-        if (success != SPI_OK) {
+        if (success != SPI_OK)
+        {
             printf("SPI Error: %d\n", success);
-        } else {
+        }
+        else
+        {
             spi_transfer_reg(params.spi, params.spi_cs, regAddress, data);
         }
         spi_release(dev->params.spi);
     }
-    else {
+    else
+    {
         i2c_write_reg(dev->params.i2c, DEV_ADDR, regAddress, data, 0);
     }
 }
 
-void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags) {
-    if (dev->params.use_spi) {
+void read_register(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *target, uint8_t flags)
+{
+    if (dev->params.use_spi)
+    {
         mpu9x50_params_t params = dev->params;
         regAddress |= SPI_READ_WRITE_MASK;
         uint8_t success = spi_acquire(params.spi, params.spi_cs, params.spi_mode, params.spi_clk);
-        if (success != SPI_OK) {
+        if (success != SPI_OK)
+        {
             printf("SPI Error: %d\n", success);
-        } else {
+        }
+        else
+        {
             *target = spi_transfer_reg(params.spi, params.spi_cs, regAddress, 0);
         }
         spi_release(dev->params.spi);
     }
-    else {
+    else
+    {
         i2c_read_reg(dev->params.i2c, DEV_ADDR, regAddress, target, flags);
     }
 }
 
-void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length) {
-    if (dev->params.use_spi > 0) {
+void read_registers(const mpu9x50_t *dev, uint8_t regAddress, uint8_t *buffer, uint16_t length)
+{
+    if (dev->params.use_spi > 0)
+    {
         mpu9x50_params_t params = dev->params;
         regAddress |= SPI_READ_WRITE_MASK;
         uint8_t success = spi_acquire(params.spi, params.spi_cs, params.spi_mode, params.spi_clk);
-        if (success != SPI_OK) {
+        if (success != SPI_OK)
+        {
             printf("SPI Error: %d\n", success);
-        } else {
+        }
+        else
+        {
             spi_transfer_regs(params.spi, params.spi_cs, regAddress, NULL, buffer, length);
         }
         spi_release(dev->params.spi);
     }
-    else {
+    else
+    {
         i2c_read_regs(dev->params.i2c, DEV_ADDR, regAddress, buffer, length, 0);
     }
 }
 
-float getFullRange(const mpu9x50_t *dev) {
-    switch (dev->conf.accel_fsr) {
-        case MPU9X50_ACCEL_FSR_2G:
-            return 2000.0;
-        case MPU9X50_ACCEL_FSR_4G:
-            return 4000.0;
-        case MPU9X50_ACCEL_FSR_8G:
-            return 8000.0;
-        case MPU9X50_ACCEL_FSR_16G:
-            return 16000.0;
-        default:
-            return -2;
+float getFullRange(const mpu9x50_t *dev)
+{
+    switch (dev->conf.accel_fsr)
+    {
+    case MPU9X50_ACCEL_FSR_2G:
+        return 2000.0;
+    case MPU9X50_ACCEL_FSR_4G:
+        return 4000.0;
+    case MPU9X50_ACCEL_FSR_8G:
+        return 8000.0;
+    case MPU9X50_ACCEL_FSR_16G:
+        return 16000.0;
+    default:
+        return -2;
     }
 }
