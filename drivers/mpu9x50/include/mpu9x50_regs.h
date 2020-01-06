@@ -35,6 +35,8 @@
 #define MPU9X50_LPF_REG                 (0x1A)
 #define MPU9X50_GYRO_CFG_REG            (0x1B)
 #define MPU9X50_ACCEL_CFG_REG           (0x1C)
+#define MPU9X50_LP_ACCEL_ODR            (0x1E)
+#define MPU9X50_WOM_THRESHOLD           (0x1F)
 #define MPU9X50_FIFO_EN_REG             (0x23)
 #define MPU9X50_I2C_MST_REG             (0x24)
 #define MPU9X50_SLAVE0_ADDR_REG         (0x25)
@@ -58,6 +60,7 @@
 #define MPU9X50_SLAVE2_DATA_OUT_REG     (0x65)
 #define MPU9X50_SLAVE3_DATA_OUT_REG     (0x66)
 #define MPU9X50_I2C_DELAY_CTRL_REG      (0x67)
+#define MPU9X50_ACCEL_INTEL_CTRL        (0x69)
 #define MPU9X50_USER_CTRL_REG           (0x6A)
 #define MPU9X50_PWR_MGMT_1_REG          (0x6B)
 #define MPU9X50_PWR_MGMT_2_REG          (0x6C)
@@ -91,6 +94,7 @@
 #define BIT_SLV1_DELAY_EN               (0x02)
 #define BIT_I2C_BYPASS_EN               (0x02)
 #define BIT_I2C_MST_EN                  (0x20)
+#define BIT_PWR_MGMT1_CYCLE            (0x20)
 #define BIT_PWR_MGMT1_SLEEP             (0x40)
 #define BIT_WAIT_FOR_ES                 (0x40)
 #define BIT_I2C_MST_VDDIO               (0x80)
@@ -122,6 +126,10 @@
 #define BIT_INT_STATUS_FIFO_OVERFLOW    (0x10)
 #define BIT_INT_STATUS_FSYNC            (0x08)
 #define BIT_INT_STATUS_EN_RAW_RDY       (0x01)
+
+#define BIT_ACCEL_INTEL_EN              (0x80)
+#define BIT_ACCEL_INTEL_MODE            (0x40)
+
 /** @} */
 
 

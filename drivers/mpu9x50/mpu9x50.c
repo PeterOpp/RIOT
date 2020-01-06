@@ -148,6 +148,10 @@ int mpu9x50_init(mpu9x50_t *dev, const mpu9x50_params_t *params)
 
     xtimer_usleep(MPU9X50_PWR_CHANGE_SLEEP_US);
 
+    /* Set Interrupt Config to keep high until status register is read*/
+    uint8_t reg = BIT_INT_PIN_LATCH_INT_EN;
+    write_register(dev, MPU9X50_INT_PIN_CFG_REG, reg);
+
     return 0;
 }
 
@@ -590,19 +594,50 @@ int mpu9x50_set_compass_sample_rate(mpu9x50_t *dev, uint8_t rate)
 
 void mpu9x50_enable_fifo_overflow_interrupt(const mpu9x50_t *dev)
 {
-    /* Configure Interrupt Pin */
-    gpio_init(dev->params.int_pin, GPIO_IN);
-
-    /* Set Interrupt Config to keep high until status register is read*/
-    uint8_t reg = BIT_INT_PIN_LATCH_INT_EN;
-    write_register(dev, MPU9X50_INT_PIN_CFG_REG, reg);
-
-    /* Enable ONLY the overflow Interrupt */
-    reg = BIT_INT_EN_FIFO_OVERFLOW;
+    /* Enable the overflow Interrupt */
+    uint8_t reg = BIT_INT_EN_FIFO_OVERFLOW;
+    read_register(dev, MPU9X50_INT_ENABLE_REG, &reg, 0);
+    reg |= BIT_INT_EN_FIFO_OVERFLOW;
     write_register(dev, MPU9X50_INT_ENABLE_REG, reg);
 
     /*read status to clear interrupt */
     read_register(dev, MPU9X50_INT_STATUS, &reg, 0);
+}
+
+void mpu9x50_enable_motion_interrupt(const mpu9x50_t *dev, uint16_t threshold, uint16_t frequency)
+{
+    /* Enable the wake-up Interrupt */
+    uint8_t reg;
+    read_register(dev, MPU9X50_INT_ENABLE_REG, &reg, 0);
+    reg |= BIT_INT_EN_WOM_EN;
+    write_register(dev, MPU9X50_INT_ENABLE_REG, reg);
+
+    /* Enable Accelerometer Intelligence */
+    reg = BIT_ACCEL_INTEL_EN | BIT_ACCEL_INTEL_MODE;
+    write_register(dev, MPU9X50_ACCEL_INTEL_CTRL, reg);
+
+    /* Set threshold (LSB = 4mg) */
+    write_register(dev, MPU9X50_WOM_THRESHOLD, threshold >> 2);
+
+    /* Set Wakeup Frequency */
+    write_register(dev, MPU9X50_LP_ACCEL_ODR, frequency);
+
+    /* Enable cycle mode */
+    read_register(dev, MPU9X50_PWR_MGMT_1_REG, &reg, 0);
+    reg |= BIT_PWR_MGMT1_CYCLE;
+    write_register(dev, MPU9X50_PWR_MGMT_1_REG, reg);
+
+    /*read status to clear interrupt */
+    read_register(dev, MPU9X50_INT_STATUS, &reg, 0);
+}
+
+void mpu9x50_disable_motion_interrupt(const mpu9x50_t *dev)
+{
+    /* Enable the wake-up Interrupt */
+    uint8_t reg = BIT_INT_EN_FIFO_OVERFLOW;
+    read_register(dev, MPU9X50_INT_ENABLE_REG, &reg, 0);
+    reg &= ~BIT_INT_EN_WOM_EN;
+    write_register(dev, MPU9X50_INT_ENABLE_REG, reg);
 }
 
 void mpu9x50_disable_fifo_overflow_interrupt(const mpu9x50_t *dev)
@@ -621,6 +656,17 @@ bool mpu9x50_check_fifo_overflow(const mpu9x50_t *dev)
         uint8_t status;
         read_register(dev, MPU9X50_INT_STATUS, &status, 0);
         return (status & BIT_INT_STATUS_FIFO_OVERFLOW) > 0;
+    }
+    return false;
+}
+
+bool mpu9x50_check_motion_interrupt(const mpu9x50_t *dev)
+{
+    if (gpio_read(dev->params.int_pin))
+    {
+        uint8_t status;
+        read_register(dev, MPU9X50_INT_STATUS, &status, 0);
+        return (status & BIT_INT_STATUS_WOM_INT) > 0;
     }
     return false;
 }

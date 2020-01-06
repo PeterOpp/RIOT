@@ -196,6 +196,7 @@ typedef struct {
     uint16_t sample_rate;       /**< Sample rate */
 } mpu9x50_params_t;
 
+
 /**
  * @brief   Device descriptor for the MPU9X50 sensor
  */
@@ -283,12 +284,29 @@ void mpu9x50_enable_acc_fifo(const mpu9x50_t *dev);
 void mpu9x50_enable_fifo_overflow_interrupt(const mpu9x50_t *dev);
 
 /**
- * @brief Deactivates the interrupt pin and configure the FIFO_Overflow Interrupt
+ * @brief Deactivates the FIFO_Overflow Interrupt
  * *
  * @param[in]  dev          Device descriptor of MPU9X50 device to read from
  *
  */
 void mpu9x50_disable_fifo_overflow_interrupt(const mpu9x50_t *dev);
+
+/**
+ * @brief Configure the Wake-Up on motion interrupt
+ * *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ * @param[in]  threshold    The wake-up threshold in milli g
+ * @param[in]  frequency    The sampling freuqency during low-power mode (LSB = 0.245Hz)
+ */
+void mpu9x50_enable_motion_interrupt(const mpu9x50_t *dev, uint16_t threshold, uint16_t frequency);
+
+/**
+ * @brief Deactivates the the wake up on motion Interrupt
+ * *
+ * @param[in]  dev          Device descriptor of MPU9X50 device to read from
+ *
+ */
+void mpu9x50_disable_motion_interrupt(const mpu9x50_t *dev);
 
 /**
  * @brief Checks if the FIFO Overflow Interrupt is thrown
@@ -297,6 +315,8 @@ void mpu9x50_disable_fifo_overflow_interrupt(const mpu9x50_t *dev);
  * @return                  True, if the interrupt has been thrown
  */
 bool mpu9x50_check_fifo_overflow(const mpu9x50_t *dev);
+
+bool mpu9x50_check_motion_interrupt(const mpu9x50_t *dev);
 
 /**
  * @brief  Read available accelerometer samples from the FIFO queue
