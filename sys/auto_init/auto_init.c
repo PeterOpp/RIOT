@@ -597,7 +597,7 @@ void auto_init(void)
 
 #ifdef MODULE_SDCARD_SPI
     extern void auto_init_sdcard_spi(void);
-    auto_init_sdcard_spi();
+    //auto_init_sdcard_spi();
 #endif
 
 #endif /* MODULE_AUTO_INIT_STORAGE */

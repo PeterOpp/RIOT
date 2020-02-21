@@ -48,6 +48,7 @@ static int mtd_sdcard_init(mtd_dev_t *dev)
 {
     DEBUG("mtd_sdcard_init\n");
     mtd_sdcard_t *mtd_sd = (mtd_sdcard_t*)dev;
+
     if ((mtd_sd->sd_card->init_done == true) ||
         (sdcard_spi_init(mtd_sd->sd_card, mtd_sd->params) == 0)) {
         /* erasing whole sectors is handled internally by the card so you can

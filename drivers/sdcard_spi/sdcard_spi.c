@@ -63,6 +63,7 @@ int sdcard_spi_init(sdcard_spi_t *card, const sdcard_spi_params_t *params)
 {
     sd_init_fsm_state_t state = SD_INIT_START;
     card->params = *params;
+
     card->spi_clk = SD_CARD_SPI_SPEED_PREINIT;
 
     do {
