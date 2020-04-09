@@ -3,6 +3,4 @@ FLASHFILE ?= $(HEXFILE)
 FLASHER = mspdebug
 FFLAGS = rf2500 "prog $(FLASHFILE)"
 
-INCLUDES += -I$(RIOTBOARD)/$(BOARD)/drivers/include
-
-USEMODULE += chronos-drivers
+INCLUDES += -I$(RIOTBOARD)/chronos/drivers/include

@@ -23,6 +23,11 @@
 #define ENABLE_DEBUG        (0)
 #include "debug.h"
 
+#define EXTI_IMR_BIT        (EXTI_IMR_MR17)
+#define EXTI_FTSR_BIT       (EXTI_FTSR_TR17)
+#define EXTI_RTSR_BIT       (EXTI_RTSR_TR17)
+#define EXTI_PR_BIT         (EXTI_PR_PR17)
+
 static struct {
     rtc_alarm_cb_t cb;          /**< callback called from RTC interrupt */
     void *arg;                  /**< argument passed to the callback */
@@ -99,14 +104,23 @@ static void _rtc_config(void)
 
     /* disable backup domain write protection */
     PWR->CR &= ~PWR_CR_DBP;
+
+    /* configure the EXTI channel, as RTC interrupts are routed through it.
+     * Needs to be configured to trigger on rising edges. */
+    EXTI->FTSR &= ~(EXTI_FTSR_BIT);
+    EXTI->RTSR |= EXTI_RTSR_BIT;
+    EXTI->IMR  |= EXTI_IMR_BIT;
+    EXTI->PR   |= EXTI_PR_BIT;
+    /* enable global RTC interrupt */
+    NVIC_EnableIRQ(RTC_Alarm_IRQn);
 }
 
-static time_t _rtc_get_time(void)
+static uint32_t _rtc_get_time(void)
 {
     return (RTC->CNTH << 16) | RTC->CNTL;
 }
 
-static void _rtc_set_time(time_t counter_val)
+static void _rtc_set_time(uint32_t counter_val)
 {
     _rtc_enter_config_mode();
     RTC->CNTH = (counter_val & 0xffff0000) >> 16;
@@ -118,7 +132,7 @@ void rtc_init(void)
 {
     /* save current time if RTC already works */
     bool is_rtc_enable = _is_rtc_enable();
-    time_t cur_time = 0;
+    uint32_t cur_time = 0;
     if (is_rtc_enable) {
         cur_time = _rtc_get_time();
     }
@@ -134,26 +148,21 @@ void rtc_init(void)
 
 int rtc_set_time(struct tm *time)
 {
-    time_t timestamp = mktime(time);
-
-    if (timestamp == -1) {
-        return -1;
-    }
+    uint32_t timestamp = rtc_mktime(time);
 
     _rtc_set_time(timestamp);
 
-    DEBUG("%s timestamp=%"PRIu32"\n", __func__, (uint32_t)timestamp);
+    DEBUG("%s timestamp=%"PRIu32"\n", __func__, timestamp);
 
     return 0;
 }
 
 int rtc_get_time(struct tm *time)
 {
-    time_t timestamp = _rtc_get_time();
-    localtime_r(&timestamp, time);
+    uint32_t timestamp = _rtc_get_time();
+    rtc_localtime(timestamp, time);
 
-    DEBUG("%s timestamp=%"PRIu32"\n", __func__, (uint32_t)timestamp);
-
+    DEBUG("%s timestamp=%"PRIu32"\n", __func__, timestamp);
     return 0;
 }
 
@@ -170,16 +179,16 @@ static void _rtc_enable_alarm(void)
 static void _rtc_disable_alarm(void)
 {
     _rtc_enter_config_mode();
-    RTC->CRH &= ~(RTC_CRH_ALRIE | RTC_CRH_SECIE);
+    RTC->CRH &= ~RTC_CRH_ALRIE;
     _rtc_exit_config_mode();
 }
 
-static time_t _rtc_get_alarm_time(void)
+static uint32_t _rtc_get_alarm_time(void)
 {
     return (RTC->ALRH << 16) | RTC->ALRL;
 }
 
-static void _rtc_set_alarm_time(time_t alarm_time)
+static void _rtc_set_alarm_time(uint32_t alarm_time)
 {
     _rtc_enter_config_mode();
     RTC->ALRL = (alarm_time & 0x0000ffff);
@@ -189,56 +198,42 @@ static void _rtc_set_alarm_time(time_t alarm_time)
 
 int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 {
-    /* enable global RTC interrupt */
-    if (cb && !NVIC_GetEnableIRQ(RTC_IRQn)) {
-        NVIC_EnableIRQ(RTC_IRQn);
-        DEBUG("%s enable RTC IRQ\n", __func__);
-    }
+    uint32_t timestamp = rtc_mktime(time);
+
+    /* disable existing alarm (if enabled) */
+    rtc_clear_alarm();
 
     /* save callback and argument */
     isr_ctx.cb = cb;
     isr_ctx.arg = arg;
 
     /* set wakeup time */
-    time_t timestamp = mktime(time);
-
-    if (timestamp == -1) {
-        return -2;
-    }
-
-    _rtc_disable_alarm();
     _rtc_set_alarm_time(timestamp);
 
     /* enable Alarm */
     _rtc_enable_alarm();
 
-    DEBUG("%s timestamp=%"PRIu32"\n", __func__, (uint32_t)timestamp);
+    DEBUG("%s timestamp=%"PRIu32"\n", __func__, timestamp);
 
     return 0;
 }
 
 int rtc_get_alarm(struct tm *time)
 {
-    time_t timestamp = _rtc_get_alarm_time();
-    localtime_r(&timestamp, time);
+    uint32_t timestamp = _rtc_get_alarm_time();
+    rtc_localtime(timestamp, time);
 
-    DEBUG("%s timestamp=%"PRIu32"\n", __func__, (uint32_t)timestamp);
+    DEBUG("%s timestamp=%"PRIu32"\n", __func__, timestamp);
 
     return 0;
-}
-
-static void _rtc_clear_isr_ctx(void)
-{
-    isr_ctx.cb = NULL;
-    isr_ctx.arg = NULL;
 }
 
 void rtc_clear_alarm(void)
 {
     _rtc_disable_alarm();
-    _rtc_set_alarm_time(0);
 
-    _rtc_clear_isr_ctx();
+    isr_ctx.cb = NULL;
+    isr_ctx.arg = NULL;
 }
 
 void rtc_poweron(void)
@@ -253,13 +248,14 @@ void rtc_poweroff(void)
     return;
 }
 
-void isr_rtc(void)
+void isr_rtc_alarm(void)
 {
-    _rtc_disable_alarm();
-
-    if (isr_ctx.cb != NULL) {
-        isr_ctx.cb(isr_ctx.arg);
+    if (RTC->CRL & RTC_CRL_ALRF) {
+        if (isr_ctx.cb != NULL) {
+            isr_ctx.cb(isr_ctx.arg);
+        }
+        RTC->CRL &= ~RTC_CRL_ALRF;
     }
-
+    EXTI->PR |= EXTI_PR_BIT;
     cortexm_isr_end();
 }

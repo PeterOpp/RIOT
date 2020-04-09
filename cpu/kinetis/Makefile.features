@@ -1,7 +1,7 @@
 FEATURES_PROVIDED += periph_cpuid
 
-# TRNG driver is not implemented for mkw41z512vht4 model
-_KINETIS_CPU_MODELS_WITHOUT_HWRNG += mkw41z512vht4
+# TRNG driver is not implemented for mkw41z models
+_KINETIS_CPU_MODELS_WITHOUT_HWRNG += mkw41z256vht4 mkw41z512vht4
 # No HWRNG in mk20d7 devices
 _KINETIS_CPU_MODELS_WITHOUT_HWRNG += mk20dx256vlh7
 
@@ -17,6 +17,13 @@ ifeq (s9keaz128aclh48,$(CPU_MODEL))
   FEATURES_PROVIDED += periph_ics
 else
   FEATURES_PROVIDED += periph_mcg
+endif
+
+# Since KINETIS_SERIES isn't available in Makefile.features filter according to
+# CPU_MODEL
+ifneq (,$(filter mkw% mk%,$(CPU_MODEL)))
+  FEATURES_PROVIDED += periph_flashpage
+  FEATURES_PROVIDED += periph_flashpage_raw
 endif
 
 include $(RIOTCPU)/cortexm_common/Makefile.features

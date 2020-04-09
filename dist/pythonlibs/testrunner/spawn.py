@@ -24,6 +24,14 @@ RIOTBASE = (os.environ.get('RIOTBASE') or
 # default value (3)
 MAKE_TERM_STARTED_DELAY = int(os.environ.get('TESTRUNNER_START_DELAY') or 3)
 
+# Setting an empty 'TESTRUNNER_RESET_DELAY' environment variable use the
+# default value (0, no delay)
+MAKE_RESET_DELAY = int(os.environ.get('TESTRUNNER_RESET_DELAY') or 0)
+
+# Setting an empty 'TESTRUNNER_CONNECT_DELAY' environment variable use the
+# default value (0)
+MAKE_TERM_CONNECT_DELAY = int(os.environ.get('TESTRUNNER_CONNECT_DELAY') or 0)
+
 # Allow customizing test interactive settings with environment variables
 TEST_INTERACTIVE_RETRIES = int(os.environ.get('TEST_INTERACTIVE_RETRIES') or 5)
 TEST_INTERACTIVE_DELAY = int(os.environ.get('TEST_INTERACTIVE_DELAY') or 1)
@@ -35,6 +43,9 @@ TESTRUNNER_RESET_AFTER_TERM = int(os.environ.get('TESTRUNNER_RESET_AFTER_TERM')
 
 
 def _reset_board(env):
+    if MAKE_RESET_DELAY > 0:
+        time.sleep(MAKE_RESET_DELAY)
+
     try:
         subprocess.check_output(('make', 'reset'), env=env,
                                 stderr=subprocess.PIPE)
@@ -58,6 +69,10 @@ def setup_child(timeout=10, spawnclass=pexpect.spawnu, env=None, logfile=None):
     # Some boards can't be reset after a terminal is open. Therefore reset
     # before `cleanterm`.
     _reset_board(env)
+
+    # on platforms exposing UART over USB, wait a little before connecting to
+    # the serial terminal. This gives time for stdio to be ready.
+    time.sleep(MAKE_TERM_CONNECT_DELAY)
 
     child = spawnclass("make cleanterm", env=env, timeout=timeout,
                        codec_errors='replace', echo=False)
@@ -92,9 +107,14 @@ def sync_child(child, env):
     # Do a child synchronization if used by a module
     modules = modules_list()
     if 'test_utils_interactive_sync' in modules:
-        utils.test_utils_interactive_sync(child,
-                                          TEST_INTERACTIVE_RETRIES,
-                                          TEST_INTERACTIVE_DELAY)
+        if 'test_utils_interactive_sync_shell' in modules:
+            utils.test_utils_interactive_sync_shell(child,
+                                                    TEST_INTERACTIVE_RETRIES,
+                                                    TEST_INTERACTIVE_DELAY)
+        else:
+            utils.test_utils_interactive_sync(child,
+                                              TEST_INTERACTIVE_RETRIES,
+                                              TEST_INTERACTIVE_DELAY)
     # If requested also reset after opening the terminal, this should not be used
     # by any application since it breaks the tests for boards that do not support
     # this feature.

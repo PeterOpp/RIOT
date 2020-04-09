@@ -24,11 +24,11 @@
 
 #ifndef DOXYGEN
 
+#include "board.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "board.h"
 
 /**
  * @brief   Defines the CPU frequency [values = 2, 40, 80, 160 and 240]
@@ -73,11 +73,11 @@ extern "C" {
  * This is configured at the board level, defaulting to 40.
  */
 #ifndef CONFIG_ESP32_XTAL_FREQ
-#define CONFIG_ESP32_XTAL_FREQ                  ESP32_XTAL_FREQ
+#define CONFIG_ESP32_XTAL_FREQ                  0
 #endif
 
 #define CONFIG_ESP32_RTC_XTAL_BOOTSTRAP_CYCLES  100
-#define CONFIG_ESP32_RTC_CLK_CAL_CYCLES         1024
+#define CONFIG_ESP32_RTC_CLK_CAL_CYCLES         (8 * 1024)
 
 /**
  * System specific configuration (DO NOT CHANGE)
@@ -90,6 +90,7 @@ extern "C" {
 #define CONFIG_NUMBER_OF_UNIVERSAL_MAC_ADDRESS  4
 
 #define CONFIG_NEWLIB_NANO_FORMAT               0
+#define CONFIG_ESP32_DEEP_SLEEP_WAKEUP_DELAY    2000
 
 /**
  * Bluetooth configuration (DO NOT CHANGE)
@@ -157,7 +158,9 @@ extern "C" {
 #define CONFIG_ESP32_WIFI_CSI_ENABLED           0
 #define CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_0 1
 #define CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_1 0
-#define CONFIG_ESP32_WIFI_NVS_ENABLED           0
+#if MODULE_ESP_IDF_NVS_ENABLED
+#define CONFIG_ESP32_WIFI_NVS_ENABLED           1
+#endif
 
 /**
  * PHY configuration

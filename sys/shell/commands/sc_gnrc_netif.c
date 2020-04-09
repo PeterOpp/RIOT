@@ -56,6 +56,7 @@ static const struct {
     char *name;
     netopt_t opt;
 } flag_cmds[] = {
+    { "6lo", NETOPT_6LO },
     { "ack_req", NETOPT_ACK_REQ },
     { "autoack", NETOPT_AUTOACK },
     { "autocca", NETOPT_AUTOCCA },
@@ -441,7 +442,7 @@ static void _netif_list_groups(ipv6_addr_t *addr)
 static void _netif_list(netif_t *iface)
 {
 #ifdef MODULE_GNRC_IPV6
-    ipv6_addr_t ipv6_addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+    ipv6_addr_t ipv6_addrs[CONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF];
     ipv6_addr_t ipv6_groups[GNRC_NETIF_IPV6_GROUPS_NUMOF];
 #endif
     uint8_t hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
@@ -493,9 +494,10 @@ static void _netif_list(netif_t *iface)
         printf(" CR: %s ", _netopt_coding_rate_str[u8]);
     }
 #endif
-    res = netif_get_opt(iface, NETOPT_LINK, 0, &u8, sizeof(u8));
+    netopt_enable_t link;
+    res = netif_get_opt(iface, NETOPT_LINK, 0, &link, sizeof(netopt_enable_t));
     if (res >= 0) {
-        printf(" Link: %s ", (netopt_enable_t)u8 ? "up" : "down" );
+        printf(" Link: %s ", (link == NETOPT_ENABLE) ? "up" : "down" );
     }
     line_thresh = _newline(0U, line_thresh);
     res = netif_get_opt(iface, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
@@ -613,7 +615,7 @@ static void _netif_list(netif_t *iface)
     res = netif_get_opt(iface, NETOPT_IPV6_ADDR, 0, ipv6_addrs,
                           sizeof(ipv6_addrs));
     if (res >= 0) {
-        uint8_t ipv6_addrs_flags[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+        uint8_t ipv6_addrs_flags[CONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF];
 
         memset(ipv6_addrs_flags, 0, sizeof(ipv6_addrs_flags));
         /* assume it to succeed (otherwise array will stay 0) */
@@ -1400,7 +1402,7 @@ int _gnrc_netif_send(int argc, char **argv)
     nethdr = (gnrc_netif_hdr_t *)hdr->data;
     nethdr->flags = flags;
     /* and send it */
-    if (gnrc_netapi_send(((gnrc_netif_t *)iface)->pid, pkt) < 1) {
+    if (gnrc_netif_send((gnrc_netif_t *)iface, pkt) < 1) {
         puts("error: unable to send");
         gnrc_pktbuf_release(pkt);
         return 1;

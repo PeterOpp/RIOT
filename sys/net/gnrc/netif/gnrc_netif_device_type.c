@@ -15,6 +15,7 @@
  */
 
 #include <errno.h>
+#include <kernel_defines.h>
 
 #include "log.h"
 #ifdef MODULE_GNRC_IPV6
@@ -105,10 +106,13 @@ void gnrc_netif_init_6ln(gnrc_netif_t *netif)
 #ifdef MODULE_CC110X
         case NETDEV_TYPE_CC110X:
 #endif
+#ifdef MODULE_ESP_NOW
+        case NETDEV_TYPE_ESP_NOW:
+#endif
         case NETDEV_TYPE_NRFMIN:
-#if GNRC_IPV6_NIB_CONF_6LN
+#if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_6LN)
             netif->flags |= GNRC_NETIF_FLAGS_6LN;
-#endif  /* GNRC_IPV6_NIB_CONF_6LN */
+#endif  /* CONFIG_GNRC_IPV6_NIB_6LN */
             /* intentionally falls through */
         default:
             break;
@@ -152,8 +156,11 @@ void gnrc_netif_ipv6_init_mtu(gnrc_netif_t *netif)
 #ifdef MODULE_GNRC_IPV6
             netif->ipv6.mtu = ETHERNET_DATA_LEN;
 #endif
-#if defined(MODULE_GNRC_SIXLOWPAN_IPHC) && defined(MODULE_GNRC_SIXLOENC)
+#ifdef MODULE_GNRC_SIXLOENC
+            netif->flags |= GNRC_NETIF_FLAGS_6LO;
+#ifdef MODULE_GNRC_SIXLOWPAN_IPHC
             netif->flags |= GNRC_NETIF_FLAGS_6LO_HC;
+#endif
 #endif
             break;
 #endif

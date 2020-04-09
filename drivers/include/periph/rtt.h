@@ -43,8 +43,16 @@ extern "C" {
 #endif
 
 #ifndef RTT_FREQUENCY
+
+/* Allow mock-RTT for unit tests */
+#ifdef MOCK_RTT_FREQUENCY
+#define RTT_FREQUENCY MOCK_RTT_FREQUENCY
+#define RTT_MAX_VALUE MOCK_RTT_MAX_VALUE
+#else
+
 #warning "RTT_FREQUENCY undefined. Set RTT_FREQUENCY to the number of ticks" \
          "per second for the current architecture."
+#endif
 #endif
 
 /**
@@ -144,7 +152,7 @@ uint32_t rtt_get_counter(void);
 void rtt_set_counter(uint32_t counter);
 
 /**
- * @brief Set an alarm for RTT to the specified value.
+ * @brief Set an alarm for RTT to the specified absolute target time.
  *
  * @param[in] alarm         The value to trigger an alarm when hit
  * @param[in] cb            Callback executed when alarm is hit

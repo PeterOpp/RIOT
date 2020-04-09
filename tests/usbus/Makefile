@@ -3,13 +3,15 @@ USEMODULE += embunit
 USEMODULE += usbus
 FEATURES_PROVIDED += periph_usbdev
 
+DISABLE_MODULE += auto_init_usbus
+
 # USB device vendor and product ID
 DEFAULT_VID = 1209
-DEFAULT_PID = 0001
+DEFAULT_PID = 7D00
 USB_VID ?= $(DEFAULT_VID)
 USB_PID ?= $(DEFAULT_PID)
 
-CFLAGS += -DUSB_CONFIG_VID=0x$(USB_VID) -DUSB_CONFIG_PID=0x$(USB_PID)
+CFLAGS += -DCONFIG_USB_VID=0x$(USB_VID) -DCONFIG_USB_PID=0x$(USB_PID)
 
 include $(RIOTBASE)/Makefile.include
 

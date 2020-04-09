@@ -38,18 +38,30 @@ endif
 DEPENDENCY_DEBUG_OUTPUT_DIR ?= $(CURDIR)
 
 # Save variables that are used for parsing dependencies
-_DEPS_DEBUG_VARS += BOARD CPU CPU_MODEL CPU_FAM
-_DEPS_DEBUG_VARS += FEATURES_PROVIDED _FEATURES_PROVIDED_SORTED FEATURES_REQUIRED _FEATURES_REQUIRED_SORTED FEATURES_OPTIONAL FEATURES_USED FEATURES_MISSING FEATURES_CONFLICT FEATURES_CONFLICTING
+_DEPS_DEBUG_VARS += BOARD CPU CPU_MODEL CPU_ARCH CPU_FAM
+_DEPS_DEBUG_VARS += FEATURES_PROVIDED _FEATURES_PROVIDED_SORTED
+_DEPS_DEBUG_VARS += FEATURES_REQUIRED _FEATURES_REQUIRED_SORTED
+_DEPS_DEBUG_VARS += FEATURES_REQUIRED_ANY _FEATURES_REQUIRED_ANY_SORTED
+_DEPS_DEBUG_VARS += FEATURES_OPTIONAL FEATURES_USED FEATURES_MISSING
+_DEPS_DEBUG_VARS += FEATURES_CONFLICT FEATURES_CONFLICTING
 _DEPS_DEBUG_VARS += USEMODULE DEFAULT_MODULE DISABLE_MODULE
 DEPS_DEBUG_VARS ?= $(_DEPS_DEBUG_VARS)
 
 _FEATURES_PROVIDED_SORTED = $(sort $(FEATURES_PROVIDED))
 _FEATURES_REQUIRED_SORTED = $(sort $(FEATURES_REQUIRED))
+_FEATURES_REQUIRED_ANY_SORTED = $(sort $(FEATURES_REQUIRED_ANY))
 
 file_save_dependencies_variables = $(call file_save_variable,$(DEPENDENCY_DEBUG_OUTPUT_DIR)/$1_$(BOARD),$(DEPS_DEBUG_VARS))
 # Remove file before to be sure appending is started with an empty file
 file_save_variable = $(shell mkdir -p $(dir $1); rm -f $1)$(foreach v,$2,$(file >>$1,$(call _print_var,$v)))
 
+# print variables sorted, this can eliminate false positives but will not allow
+# to tell in what order the variables where updated.
+DEPENDENCY_DEBUG_SORT_VARS ?= 0
 # Remove spaces in case of empty value
 # Remove spaces around value as it happens
-_print_var = $(strip $1 = $(strip $($1)))
+ifneq (1,$(DEPENDENCY_DEBUG_SORT_VARS))
+  _print_var = $(strip $1 = $(strip $($1)))
+else
+  _print_var = $(sort $(strip $1 = $(strip $($1))))
+endif

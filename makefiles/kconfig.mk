@@ -10,15 +10,9 @@ GENERATED_DIR = $(BINDIR)/generated
 # This file will contain all generated configuration from kconfig
 export KCONFIG_GENERATED_AUTOCONF_HEADER_C = $(GENERATED_DIR)/autoconf.h
 
-# Add configuration header to build dependencies
-BUILDDEPS += $(KCONFIG_GENERATED_AUTOCONF_HEADER_C)
-
-# Include configuration header when building
-CFLAGS += -include '$(KCONFIG_GENERATED_AUTOCONF_HEADER_C)'
-
 # Header for the generated header file
 define KCONFIG_AUTOHEADER_HEADER
-/* RIOT Configuration File */
+$(if $(filter MINGW% CYGWIN% MSYS%,$(OS)),/)/* RIOT Configuration File */
 
 endef
 export KCONFIG_AUTOHEADER_HEADER
@@ -36,6 +30,11 @@ KCONFIG_USER_CONFIG = $(APPDIR)/user.config
 # one that is used to generate the 'riotconf.h' header
 KCONFIG_MERGED_CONFIG = $(GENERATED_DIR)/merged.config
 
+# This is the output of the generated configuration. It always mirrors the
+# content of KCONFIG_GENERATED_AUTOCONF_HEADER_C, and it is used to load
+# configuration symbols to the build system.
+KCONFIG_OUT_CONFIG = $(GENERATED_DIR)/out.config
+
 # Include configuration symbols if available, only when not cleaning. This
 # allows to check for Kconfig symbols in makefiles.
 # Make tries to 'remake' all included files
@@ -45,7 +44,7 @@ KCONFIG_MERGED_CONFIG = $(GENERATED_DIR)/merged.config
 # This has the side effect of requiring a Kconfig user to run 'clean' on a
 # separate call (e.g. 'make clean && make all'), to get the symbols correctly.
 ifneq ($(CLEAN),clean)
-  -include $(KCONFIG_MERGED_CONFIG)
+  -include $(KCONFIG_OUT_CONFIG)
 endif
 
 # Flag that indicates that the configuration has been edited
@@ -59,6 +58,28 @@ MERGE_SOURCES += $(wildcard $(KCONFIG_USER_CONFIG))
 # Create directory to place generated files
 $(GENERATED_DIR): $(CLEAN)
 	$(Q)mkdir -p $@
+
+# During migration this checks if Kconfig should run. It will run if any of
+# the following is true:
+# - A file with '.config' extension is present in the application directory
+# - A 'Kconfig' file is present in the application directory
+# - A previous configuration file is present (e.g. from a previous call to
+#   menuconfig)
+# - menuconfig is being called
+#
+# NOTE: This assumes that Kconfig will not generate any default configurations
+# just from the Kconfig files outside the application folder (i.e. module
+# configuration via Kconfig is disabled by default). Should this change, the
+# check would not longer be valid, and Kconfig would have to run on every
+# build.
+SHOULD_RUN_KCONFIG ?= $(or $(wildcard $(APPDIR)/*.config), $(wildcard $(APPDIR)/Kconfig), $(wildcard $(KCONFIG_MERGED_CONFIG)), $(filter menuconfig, $(MAKECMDGOALS)))
+
+ifneq (,$(SHOULD_RUN_KCONFIG))
+# Add configuration header to build dependencies
+BUILDDEPS += $(KCONFIG_GENERATED_AUTOCONF_HEADER_C)
+
+# Include configuration header when building
+CFLAGS += -include '$(KCONFIG_GENERATED_AUTOCONF_HEADER_C)'
 
 USEMODULE_W_PREFIX = $(addprefix MODULE_,$(USEMODULE))
 USEPKG_W_PREFIX = $(addprefix PKG_,$(USEPKG))
@@ -100,5 +121,9 @@ $(KCONFIG_MERGED_CONFIG): $(MERGECONFIG) $(KCONFIG_GENERATED_DEPENDENCIES) FORCE
 
 # Build a header file with all the Kconfig configurations. genconfig will avoid
 # any unnecessary rewrites of the header file if no configurations changed.
-$(KCONFIG_GENERATED_AUTOCONF_HEADER_C): $(KCONFIG_GENERATED_DEPENDENCIES) $(GENCONFIG) $(KCONFIG_MERGED_CONFIG) FORCE
-	$(Q)KCONFIG_CONFIG=$(KCONFIG_MERGED_CONFIG) $(GENCONFIG) --header-path $@ $(KCONFIG)
+$(KCONFIG_OUT_CONFIG) $(KCONFIG_GENERATED_AUTOCONF_HEADER_C) &: $(KCONFIG_GENERATED_DEPENDENCIES) $(GENCONFIG) $(KCONFIG_MERGED_CONFIG) FORCE
+	$(Q) \
+	KCONFIG_CONFIG=$(KCONFIG_MERGED_CONFIG) $(GENCONFIG) \
+	  --config-out=$(KCONFIG_OUT_CONFIG) \
+	  --header-path $(KCONFIG_GENERATED_AUTOCONF_HEADER_C) $(KCONFIG)
+endif

@@ -20,11 +20,28 @@
  */
 
 /*
- * If module esp_rtc_timer is enabled, the 48-bit RTC hardware timer is used
- * directly. Otherwise the PLL driven 64-bit microsecond system timer is used
- * to emulate a RTC timer (default). This emulated RTC timer results into much
- * better accuracy. The Advantage of using RTC hardware timer over system timer
- * is that it would also continue in deep sleep mode and after software reset.
+ * The RTC low-level driver uses either the RTC hardware timer directly or the
+ * PLL-controlled 64-bit microsecond system timer to emulate an RTC timer. The
+ * RTC hardware timer can be clocked with either an external 32.768 kHz crystal
+ * or an internal adjustable 150 kHz RC oscillator. Which RTC timer is used,
+ * is controlled by modules as following:
+ *
+ * default
+ *   Since the RTC hardware timer with the 150 kHz RC oscillator is less
+ *   accurate than the emulated RTC timer, the emulated RTC timer is used by
+ *   default. In this case, the RTC hardware timer is only used with the
+ *   internal 150 kHz oscillator in deep sleep mode and during a reset.
+ *
+ * module `esp_rtc_timer`
+ *   To use the RTC hardware timer with the 150 kHz Oscilator, the module
+ *   `esp_rtc_timer` has to be enabled.
+ *
+ * module `esp_rtc_timer_32k`
+ *   To use the RTC hardware timer with the external 32.768 kHz crystal, the
+ *   module 'esp_rtc_timer_32k` has to be enabled. If the module
+ *   `esp_rtc_timer_32k` is used, but no external 32.768 kHz crystal is
+ *   available, the RTC low-level driver uses the RTC hardware driver,
+ *   but with the internal 150 kHz RC oscillator.
  */
 
 #define ENABLE_DEBUG (0)
@@ -35,6 +52,7 @@
 
 #include "cpu.h"
 #include "esp_attr.h"
+#include "esp_sleep.h"
 #include "log.h"
 #include "irq_arch.h"
 #include "periph/rtc.h"
@@ -51,6 +69,9 @@
 #define TIMER_SYSTEM_INT_MASK   BIT(0)
 #define TIMER_SYSTEM_INT_SRC    ETS_TG0_T0_LEVEL_INTR_SOURCE
 
+/* RTC timer interrupt source */
+#define TIMER_RTC_INT_SRC       ETS_RTC_CORE_INTR_SOURCE
+
 #define RTC_CLK_CAL_FRACT       19  /* fractional bits of calibration value */
 
 /* we can't include soc/rtc.h because of rtc_init declaration conflicts */
@@ -64,7 +85,7 @@ static time_t         _sys_alarm_time = 0;
 
 #define RTC_BSS_ATTR __attribute__((section(".rtc.bss")))
 
-/* save several time stamps */
+/* save several time stamps in RTC memory */
 static uint64_t RTC_BSS_ATTR _rtc_time_init_us; /* RTC time on init in us */
 static uint64_t RTC_BSS_ATTR _rtc_time_init;    /* RTC time on init in cycles */
 static uint64_t RTC_BSS_ATTR _rtc_time_set_us;  /* RTC time on set in us */
@@ -79,23 +100,24 @@ static uint64_t _rtc_get_time_raw(void);        /* RTC time in cycles */
 static uint64_t _rtc_time_to_us(uint64_t raw);  /* convert RTC cycles to us */
 static void IRAM_ATTR _rtc_timer_handler(void* arg);
 
+/* alias for compatibility with espressif/esp-idf */
+int64_t esp_set_time_from_rtc(void) __attribute__((alias("rtc_init")));
+
 void rtc_init(void)
 {
-    uint64_t _rtc_time_us = _rtc_time_to_us(_rtc_get_time_raw());
+    uint64_t _rtc_time = _rtc_get_time_raw();
+    uint64_t _rtc_time_us = _rtc_time_to_us(_rtc_time);
 
     if (_rtc_time_init == 0 && _rtc_time_init_us == 0) {
         /* only set it new, if it was not set before */
-        _rtc_time_init = _rtc_get_time_raw();
+        _rtc_time_init = _rtc_time;
         _rtc_time_init_us = _rtc_time_us;
-        _sys_time_off_us = 0;
 
         DEBUG("%s saved rtc_init=%lld rtc_init_us=%lld\n",
               __func__, _rtc_time_init, _rtc_time_init_us);
 
     }
-    else {
-        _sys_time_off_us = _rtc_time_us - _rtc_time_set_us;
-    }
+    _sys_time_off_us = _rtc_time_us - _rtc_time_set_us - system_get_time_64();
     _sys_time_set_us = 0;
 }
 
@@ -116,7 +138,7 @@ int rtc_set_time(struct tm *ttime)
     _rtc_time_set = _rtc_get_time_raw();
     _rtc_time_set_us = _rtc_time_to_us(_rtc_time_set);
 
-    _sys_time_set = mktime(ttime);
+    _sys_time_set = rtc_mktime(ttime);
     _sys_time_set_us = system_get_time_64();
     _sys_time_off_us = 0;
 
@@ -128,31 +150,18 @@ int rtc_set_time(struct tm *ttime)
 
 int rtc_get_time(struct tm *ttime)
 {
-    time_t _sys_time = _sys_get_time();
+    rtc_localtime(_sys_get_time(), ttime);
 
     DEBUG("%s sys_time=%ld rtc_time=%lld rtc_time_us=%lld\n", __func__,
-          _sys_time, _rtc_get_time_raw(), _rtc_time_to_us(_rtc_get_time_raw()));
+          _sys_get_time(), _rtc_get_time_raw(), _rtc_time_to_us(_rtc_get_time_raw()));
 
-    struct tm* _time = localtime(&_sys_time);
-    if (_time) {
-        memcpy(ttime, _time, sizeof(struct tm));
-        return 0;
-    }
-    else {
-        return -1;
-    }
+    return 0;
 }
 
 int rtc_get_alarm(struct tm *time)
 {
-    struct tm* _time = localtime(&_sys_alarm_time);
-    if (_time) {
-        memcpy(time, _time, sizeof(struct tm));
-        return 0;
-    }
-    else {
-        return -1;
-    }
+    rtc_localtime(_sys_alarm_time, time);
+    return 0;
 }
 
 int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
@@ -161,22 +170,15 @@ int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
     _rtc_alarm_arg = arg;
 
     /* determine the offset of alarm time to the set time in seconds */
-    _sys_alarm_time = mktime(time);
+    _sys_alarm_time = rtc_mktime(time);
     time_t _sys_time_offset = _sys_alarm_time - _sys_time_set;
 
-    /*
-     * RTC doesn't provide alarm functionality in active mode. At least
-     * the RTC main timer seems not to work. Therefore we always use the
-     * system timer for alarms. The Advantage of using RTC over system timer
-     * is that it also continues in deep sleep and after software reset.
-     */
-#if 0 /* TODO should be MODULE_ESP_RTC_TIMER */
+#if MODULE_ESP_RTC_TIMER
 
     /* determine the offset of alarm time to current time in RTC time */
     uint64_t _rtc_time_alarm;
     _rtc_time_alarm = _rtc_time_set + _sys_time_offset * rtc_clk_slow_freq_get_hz();
-
-    DEBUG("%s sys=%d sys_alarm=%d rtc=%lld rtc_alarm=%lld\n", __func__,
+    DEBUG("%s sys=%ld sys_alarm=%ld rtc=%lld rtc_alarm=%lld\n", __func__,
           _sys_get_time(), _sys_time_offset, _rtc_get_time_raw(), _rtc_time_alarm);
 
     /* set the timer value */
@@ -193,7 +195,7 @@ int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
     RTCCNTL.int_ena.rtc_main_timer = 1;
 
     /* route all RTC interrupt sources to the same level type interrupt */
-    intr_matrix_set(PRO_CPU_NUM, DPORT_PRO_RTC_CORE_INTR_MAP_REG, CPU_INUM_RTC);
+    intr_matrix_set(PRO_CPU_NUM, ETS_RTC_CORE_INTR_SOURCE, CPU_INUM_RTC);
 
     /* set interrupt handler and enable the CPU interrupt */
     xt_set_interrupt_handler(CPU_INUM_RTC, _rtc_timer_handler, NULL);
@@ -238,7 +240,7 @@ void rtc_clear_alarm(void)
     _rtc_alarm_cb = NULL;
     _rtc_alarm_arg = NULL;
 
-#if 0 /* TODO should be MODULE_ESP_RTC_TIMER, see rtc_set_alarm */
+#if MODULE_ESP_RTC_TIMER
 
     /* disable RTC timer alarm and disable the RTC timer interrupt */
     RTCCNTL.slp_timer1.main_timer_alarm_en = 0;
@@ -301,15 +303,18 @@ static void IRAM_ATTR _rtc_timer_handler(void* arg)
 {
     irq_isr_enter();
 
-#if 0 /* TODO should be MODULE_ESP_RTC_TIMER */
+#if MODULE_ESP_RTC_TIMER
 
-     /* check for RTC timer interrupt */
+    /* check for RTC timer interrupt */
     if (RTCCNTL.int_st.rtc_main_timer) {
+        /* disable RTC timer alarm */
+        RTCCNTL.slp_timer1.main_timer_alarm_en = 0;
         /* clear the interrupt */
         RTCCNTL.int_clr.rtc_main_timer = 1;
         /* call back registered function */
         if (_rtc_alarm_cb) {
             _rtc_alarm_cb(_rtc_alarm_arg);
+            _rtc_alarm_cb = 0;
         }
     }
     /* clear all interrupts */
@@ -339,4 +344,24 @@ static void IRAM_ATTR _rtc_timer_handler(void* arg)
 #endif
 
     irq_isr_exit();
+}
+
+uint64_t rtc_pm_sleep_enter(unsigned mode)
+{
+    (void)mode;
+    if (_rtc_alarm_cb) {
+        uint64_t sleep = (_sys_alarm_time - _sys_get_time()) * US_PER_SEC;
+        esp_sleep_enable_timer_wakeup(sleep);
+        return sleep;
+    }
+    return 0;
+}
+
+void rtc_pm_sleep_exit(uint32_t cause)
+{
+    /* call the RTC time was the wakeup source and an RTC alarm was set */
+    if (cause == ESP_SLEEP_WAKEUP_TIMER && _rtc_alarm_cb) {
+        _rtc_alarm_cb(_rtc_alarm_arg);
+        _rtc_alarm_cb = 0;
+    }
 }

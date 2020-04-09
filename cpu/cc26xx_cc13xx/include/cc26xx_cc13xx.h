@@ -7,11 +7,11 @@
  */
 
 /**
- * @ingroup         cpu_cc13x2_definitions
+ * @ingroup         cpu_cc26xx_cc13xx_definitions
  * @{
  *
  * @file
- * @brief           CC13x2 MCU interrupt definitions
+ * @brief           CC26xx, CC13xx definitions
  *
  * @author          Leon M. George <leon@georgemail.eu>
  * @author          Anton Gerasimov <tossel@gmail.com>
@@ -119,8 +119,9 @@ typedef enum IRQn
 /** @ingroup cpu_specific_peripheral_memory_map
   * @{
   */
-#define FLASH_BASE                  0x00000000 /**< FLASH base address */
-#define PERIPH_BASE                 0x40000000 /**< Peripheral base address */
+#define FLASH_BASE         0x00000000 /**< FLASH base address */
+#define PERIPH_BASE        0x40000000 /**< Peripheral base address */
+#define PERIPH_BASE_NONBUF 0x60000000 /**< Peripheral base address (nonbuf) */
 /*@}*/
 
 #ifdef __cplusplus

@@ -42,7 +42,7 @@ static const tc32_conf_t timer_config[] = {
         .mclk           = &MCLK->APBAMASK.reg,
         .mclk_mask      = MCLK_APBAMASK_TC0 | MCLK_APBAMASK_TC1,
         .gclk_id        = TC0_GCLK_ID,
-        .gclk_src       = GCLK_PCHCTRL_GEN(5),
+        .gclk_src       = SAM0_GCLK_8MHZ,
         .prescaler      = TC_CTRLA_PRESCALER_DIV8,
         .flags          = TC_CTRLA_MODE_COUNT32,
     },
@@ -52,7 +52,7 @@ static const tc32_conf_t timer_config[] = {
         .mclk           = &MCLK->APBBMASK.reg,
         .mclk_mask      = MCLK_APBBMASK_TC2 | MCLK_APBBMASK_TC3,
         .gclk_id        = TC2_GCLK_ID,
-        .gclk_src       = GCLK_PCHCTRL_GEN(5),
+        .gclk_src       = SAM0_GCLK_8MHZ,
         .prescaler      = TC_CTRLA_PRESCALER_DIV8,
         .flags          = TC_CTRLA_MODE_COUNT32,
     }
@@ -78,7 +78,7 @@ static const uart_conf_t uart_config[] = {
         .dev      = &SERCOM2->USART,
         .rx_pin   = GPIO_PIN(PB, 24),
         .tx_pin   = GPIO_PIN(PB, 25),
-#ifdef MODULE_SAM0_PERIPH_UART_HW_FC
+#ifdef MODULE_PERIPH_UART_HW_FC
         .rts_pin  = GPIO_UNDEF,
         .cts_pin  = GPIO_UNDEF,
 #endif
@@ -86,13 +86,64 @@ static const uart_conf_t uart_config[] = {
         .rx_pad   = UART_PAD_RX_1,
         .tx_pad   = UART_PAD_TX_0,
         .flags    = UART_FLAG_NONE,
-        .gclk_src = GCLK_PCHCTRL_GEN_GCLK0
+        .gclk_src = SAM0_GCLK_48MHZ,
+    },
+    {    /* EXT1 */
+        .dev      = &SERCOM0->USART,
+        .rx_pin   = GPIO_PIN(PA, 5),
+        .tx_pin   = GPIO_PIN(PA, 4),
+#ifdef MODULE_PERIPH_UART_HW_FC
+        .rts_pin  = GPIO_UNDEF,
+        .cts_pin  = GPIO_UNDEF,
+#endif
+        .mux      = GPIO_MUX_D,
+        .rx_pad   = UART_PAD_RX_1,
+        .tx_pad   = UART_PAD_TX_0,
+        .flags    = UART_FLAG_NONE,
+        .gclk_src = SAM0_GCLK_48MHZ,
+    },
+    {    /* EXT2 */
+        .dev      = &SERCOM5->USART,
+        .rx_pin   = GPIO_PIN(PB, 17),
+        .tx_pin   = GPIO_PIN(PB, 16),
+#ifdef MODULE_PERIPH_UART_HW_FC
+        .rts_pin  = GPIO_UNDEF,
+        .cts_pin  = GPIO_UNDEF,
+#endif
+        .mux      = GPIO_MUX_C,
+        .rx_pad   = UART_PAD_RX_1,
+        .tx_pad   = UART_PAD_TX_0,
+        .flags    = UART_FLAG_NONE,
+        .gclk_src = SAM0_GCLK_48MHZ,
+    },
+    {    /* EXT3 */
+        .dev      = &SERCOM1->USART,
+        .rx_pin   = GPIO_PIN(PC, 23),
+        .tx_pin   = GPIO_PIN(PC, 22),
+#ifdef MODULE_PERIPH_UART_HW_FC
+        .rts_pin  = GPIO_UNDEF,
+        .cts_pin  = GPIO_UNDEF,
+#endif
+        .mux      = GPIO_MUX_C,
+        .rx_pad   = UART_PAD_RX_1,
+        .tx_pad   = UART_PAD_TX_0,
+        .flags    = UART_FLAG_NONE,
+        .gclk_src = SAM0_GCLK_48MHZ,
     }
 };
 
 /* interrupt function name mapping */
 #define UART_0_ISR          isr_sercom2_2
 #define UART_0_ISR_TX       isr_sercom2_0
+
+#define UART_1_ISR          isr_sercom0_2
+#define UART_1_ISR_TX       isr_sercom0_0
+
+#define UART_2_ISR          isr_sercom5_2
+#define UART_2_ISR_TX       isr_sercom5_0
+
+#define UART_3_ISR          isr_sercom1_2
+#define UART_3_ISR_TX       isr_sercom1_0
 
 #define UART_NUMOF          ARRAY_SIZE(uart_config)
 /** @} */
@@ -102,7 +153,20 @@ static const uart_conf_t uart_config[] = {
  * @{
  */
 static const spi_conf_t spi_config[] = {
-    {
+    {    /* EXT1 */
+        .dev      = &(SERCOM4->SPI),
+        .miso_pin = GPIO_PIN(PB, 29),
+        .mosi_pin = GPIO_PIN(PB, 27),
+        .clk_pin  = GPIO_PIN(PB, 26),
+        .miso_mux = GPIO_MUX_D,
+        .mosi_mux = GPIO_MUX_D,
+        .clk_mux  = GPIO_MUX_D,
+        .miso_pad = SPI_PAD_MISO_3,
+        .mosi_pad = SPI_PAD_MOSI_0_SCK_1,
+        .gclk_src = SAM0_GCLK_48MHZ,
+
+    },
+    {    /* EXT2, EXT3 */
         .dev      = &(SERCOM6->SPI),
         .miso_pin = GPIO_PIN(PC, 7),
         .mosi_pin = GPIO_PIN(PC, 4),
@@ -111,8 +175,8 @@ static const spi_conf_t spi_config[] = {
         .mosi_mux = GPIO_MUX_C,
         .clk_mux  = GPIO_MUX_C,
         .miso_pad = SPI_PAD_MISO_3,
-        .mosi_pad = SPI_PAD_MOSI_0_SCK_1
-
+        .mosi_pad = SPI_PAD_MOSI_0_SCK_1,
+        .gclk_src = SAM0_GCLK_48MHZ,
     }
 };
 
@@ -124,13 +188,22 @@ static const spi_conf_t spi_config[] = {
  * @{
  */
 static const i2c_conf_t i2c_config[] = {
-    {
+    {    /* EXT1 */
+        .dev      = &(SERCOM3->I2CM),
+        .speed    = I2C_SPEED_NORMAL,
+        .scl_pin  = GPIO_PIN(PA, 23),
+        .sda_pin  = GPIO_PIN(PA, 22),
+        .mux      = GPIO_MUX_C,
+        .gclk_src = SAM0_GCLK_48MHZ,
+        .flags    = I2C_FLAG_NONE
+    },
+    {    /* EXT2, EXT3 */
         .dev      = &(SERCOM7->I2CM),
         .speed    = I2C_SPEED_NORMAL,
         .scl_pin  = GPIO_PIN(PD, 9),
         .sda_pin  = GPIO_PIN(PD, 8),
         .mux      = GPIO_MUX_C,
-        .gclk_src = GCLK_PCHCTRL_GEN_GCLK0,
+        .gclk_src = SAM0_GCLK_48MHZ,
         .flags    = I2C_FLAG_NONE
     }
 };
@@ -166,6 +239,7 @@ static const sam0_common_usb_config_t sam_usbdev_config[] = {
         .dp     = GPIO_PIN(PA, 25),
         .d_mux  = GPIO_MUX_H,
         .device = &USB->DEVICE,
+        .gclk_src = SAM0_GCLK_48MHZ,
     }
 };
 

@@ -22,6 +22,7 @@
 
 #include "mpu9x50.h"
 #include "mpu9x50_regs.h"
+#include "mpu9x50_internal.h"
 #include "periph/i2c.h"
 #include "periph/spi.h"
 #include "periph/gpio.h"

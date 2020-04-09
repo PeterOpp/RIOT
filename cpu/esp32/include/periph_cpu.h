@@ -32,6 +32,22 @@ extern "C" {
 #define PROVIDES_PM_SET_LOWEST
 #define PROVIDES_PM_RESTART
 #define PROVIDES_PM_OFF
+#define PROVIDES_PM_LAYERED_OFF
+
+/**
+ * @brief   Number of usable low power modes
+ */
+#define PM_NUM_MODES            (2U)
+
+/**
+ * @name    Power modes
+ * @{
+ */
+#define ESP_PM_MODEM_SLEEP      (2U)
+#define ESP_PM_LIGHT_SLEEP      (1U)
+#define ESP_PM_DEEP_SLEEP       (0U)
+/** @} */
+
 /** @} */
 
 /**
@@ -383,6 +399,17 @@ typedef struct {
 /** @} */
 
 /**
+ * @name    RNG configuration
+ * @{
+ */
+
+/**
+ * @brief   The address of the register for accessing the hardware RNG.
+ */
+#define RNG_DATA_REG_ADDR   (0x3ff75144)
+/** @} */
+
+/**
  * @name   SPI configuration
  *
  * ESP32 has four SPI controllers:
@@ -509,6 +536,10 @@ typedef struct {
     gpio_t rxd;             /**< GPIO used as RxD pin */
 } uart_conf_t;
 
+/**
+ * @brief   Maximum number of UART interfaces
+ */
+#define UART_NUMOF_MAX  (3)
 /** @} */
 
 #ifdef __cplusplus

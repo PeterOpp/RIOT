@@ -30,7 +30,7 @@
 #include "net/gnrc.h"
 #include "net/gnrc/netreg.h"
 #ifdef SOCK_HAS_ASYNC
-#include "net/sock/async.h"
+#include "net/sock/async/types.h"
 #endif
 #include "net/sock/ip.h"
 #include "net/sock/udp.h"
@@ -55,7 +55,8 @@ typedef struct gnrc_sock_reg gnrc_sock_reg_t;
  * @internal
  */
 typedef void (*gnrc_sock_reg_cb_t)(gnrc_sock_reg_t *sock,
-                                   sock_async_flags_t flags);
+                                   sock_async_flags_t flags,
+                                   void *arg);
 #endif  /* SOCK_HAS_ASYNC */
 
 /**
@@ -86,6 +87,7 @@ struct gnrc_sock_reg {
         sock_udp_cb_t udp;              /**< UDP version */
 #endif
     } async_cb;
+    void *async_cb_arg;                 /**< asynchronous callback argument */
 #ifdef SOCK_HAS_ASYNC_CTX
     sock_async_ctx_t async_ctx;         /**< asynchronous event context */
 #endif

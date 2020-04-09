@@ -32,6 +32,9 @@ endif
 ifneq (,$(filter fib,$(USEMODULE)))
   SRC += sc_fib.c
 endif
+ifneq (,$(filter gnrc_ipv6_ext_frag_stats,$(USEMODULE)))
+  SRC += sc_gnrc_ipv6_frag_stats.c
+endif
 ifneq (,$(filter gnrc_ipv6_nib,$(USEMODULE)))
   SRC += sc_gnrc_ipv6_nib.c
 endif
@@ -53,9 +56,7 @@ ifneq (,$(filter gnrc_rpl,$(USEMODULE)))
     SRC += sc_gnrc_rpl.c
 endif
 ifneq (,$(filter gnrc_sixlowpan_ctx,$(USEMODULE)))
-ifneq (,$(filter gnrc_ipv6_nib_6lbr,$(USEMODULE)))
     SRC += sc_gnrc_6ctx.c
-endif
 endif
 ifneq (,$(filter gnrc_sixlowpan_frag_stats,$(USEMODULE)))
   SRC += sc_gnrc_6lo_frag_stats.c
@@ -83,6 +84,10 @@ ifneq (,$(filter periph_rtc,$(USEMODULE)))
   SRC += sc_rtc.c
 endif
 
+ifneq (,$(filter rtt_cmd,$(USEMODULE)))
+  SRC += sc_rtt.c
+endif
+
 ifneq (,$(filter i2c_scan,$(USEMODULE)))
   SRC += sc_i2c_scan.c
 endif
@@ -95,12 +100,12 @@ ifneq (,$(filter nimble_netif,$(USEMODULE)))
   SRC += sc_nimble_netif.c
 endif
 
-ifneq (,$(filter test_utils_interactive_sync,$(USEMODULE)))
-  SRC += sc_interactive_sync.c
-endif
-
 ifneq (,$(filter suit_coap,$(USEMODULE)))
   SRC += sc_suit.c
+endif
+
+ifneq (,$(filter cryptoauthlib,$(USEPKG)))
+  SRC += sc_cryptoauthlib.c
 endif
 
 include $(RIOTBASE)/Makefile.base

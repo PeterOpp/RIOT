@@ -36,7 +36,8 @@ extern "C" {
 #elif defined(CPU_FAM_STM32L0) || defined(CPU_FAM_STM32L1)
 #define CLOCK_LSI           (37000U)
 #elif defined(CPU_FAM_STM32F2) || defined(CPU_FAM_STM32F4) || \
-      defined(CPU_FAM_STM32F7) || defined(CPU_FAM_STM32L4)
+      defined(CPU_FAM_STM32F7) || defined(CPU_FAM_STM32L4) || \
+      defined(CPU_FAM_STM32WB)
 #define CLOCK_LSI           (32000U)
 #else
 #error "error: LSI clock speed not defined for your target CPU"
@@ -121,22 +122,26 @@ extern "C" {
 typedef enum {
     APB1,           /**< APB1 bus */
     APB2,           /**< APB2 bus */
-#if defined(CPU_FAM_STM32L4)
+#if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
     APB12,          /**< AHB1 bus, second register */
 #endif
 #if defined(CPU_FAM_STM32L0)
     AHB,            /**< AHB bus */
     IOP,            /**< IOP bus */
-#elif defined(CPU_FAM_STM32L1) || defined(CPU_FAM_STM32F1) \
-    || defined(CPU_FAM_STM32F0) || defined(CPU_FAM_STM32F3)
+#elif defined(CPU_FAM_STM32L1) || defined(CPU_FAM_STM32F1) || \
+      defined(CPU_FAM_STM32F0) || defined(CPU_FAM_STM32F3)
     AHB,            /**< AHB bus */
-#elif defined(CPU_FAM_STM32F2) || defined(CPU_FAM_STM32F4) \
-    || defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32F7)
+#elif defined(CPU_FAM_STM32F2) || defined(CPU_FAM_STM32F4) || \
+      defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32F7) || \
+      defined(CPU_FAM_STM32WB)
     AHB1,           /**< AHB1 bus */
     AHB2,           /**< AHB2 bus */
-    AHB3            /**< AHB3 bus */
+    AHB3,           /**< AHB3 bus */
 #else
 #warning "unsupported stm32XX family"
+#endif
+#if defined(CPU_FAM_STM32WB)
+    AHB4,           /**< AHB4 bus */
 #endif
 } bus_t;
 
@@ -461,7 +466,7 @@ typedef struct {
 #endif
     uint8_t bus;            /**< APB bus */
     uint8_t irqn;           /**< IRQ channel */
-#ifdef MODULE_STM32_PERIPH_UART_HW_FC
+#ifdef MODULE_PERIPH_UART_HW_FC
     gpio_t cts_pin;         /**< CTS pin - set to GPIO_UNDEF when not using HW flow control */
     gpio_t rts_pin;         /**< RTS pin */
 #ifndef CPU_FAM_STM32F1
@@ -469,7 +474,8 @@ typedef struct {
     gpio_af_t rts_af;       /**< alternate function for RTS pin */
 #endif
 #endif
-#if defined(CPU_FAM_STM32L0) || defined(CPU_FAM_STM32L4)
+#if defined(CPU_FAM_STM32L0) || defined(CPU_FAM_STM32L4) || \
+    defined(CPU_FAM_STM32WB)
     uart_type_t type;       /**< hardware module type (USART or LPUART) */
     uint32_t clk_src;       /**< clock source used for UART */
 #endif
@@ -519,7 +525,7 @@ typedef enum {
     I2C_SPEED_FAST,         /**< fast mode:    ~400kbit/s */
 #if defined(CPU_FAM_STM32F0) || defined(CPU_FAM_STM32F3) || \
     defined(CPU_FAM_STM32F7) || defined(CPU_FAM_STM32L0) || \
-    defined(CPU_FAM_STM32L4)
+    defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
     I2C_SPEED_FAST_PLUS,    /**< fast plus mode: ~1Mbit/s */
 #endif
 } i2c_speed_t;
@@ -552,7 +558,7 @@ typedef struct {
 
 #if defined(CPU_FAM_STM32F0) || defined(CPU_FAM_STM32F3) || \
     defined(CPU_FAM_STM32F7) || defined(CPU_FAM_STM32L0) || \
-    defined(CPU_FAM_STM32L4)
+    defined(CPU_FAM_STM32L4) ||  defined(CPU_FAM_STM32WB)
 /**
  * @brief   Structure for I2C timing register settings
  *
@@ -572,6 +578,46 @@ typedef struct {
     uint8_t scldel;         /**< Data setup time */
 } i2c_timing_param_t;
 #endif
+
+/**
+ * @brief USB OTG peripheral type.
+ *
+ * High speed peripheral is assumed to have DMA support available.
+ *
+ * @warning Only one of each type is supported at the moment, it is not
+ * supported to have two FS type or two HS type peripherals enabled on a
+ * single MCU.
+ */
+typedef enum {
+    STM32_USB_OTG_FS = 0,   /**< Full speed peripheral */
+    STM32_USB_OTG_HS = 1,   /**< High speed peripheral */
+} stm32_usb_otg_fshs_type_t;
+
+/**
+ * @brief Type of USB OTG peripheral phy.
+ *
+ * The FS type only supports the built-in type, the HS phy can have either the
+ * FS built-in phy enabled or the HS ULPI interface enabled.
+ */
+typedef enum {
+    STM32_USB_OTG_PHY_BUILTIN,
+    STM32_USB_OTG_PHY_ULPI,
+} stm32_usb_otg_fshs_phy_t;
+
+/**
+ * @brief stm32 USB OTG configuration
+ */
+typedef struct {
+    uint8_t *periph;                /**< USB peripheral base address */
+    uint32_t rcc_mask;              /**< bit in clock enable register */
+    stm32_usb_otg_fshs_phy_t phy;   /**< Built-in or ULPI phy */
+    stm32_usb_otg_fshs_type_t type; /**< FS or HS type */
+    uint8_t irqn;                   /**< IRQ channel */
+    uint8_t ahb;                    /**< AHB bus */
+    gpio_t dm;                      /**< Data- gpio */
+    gpio_t dp;                      /**< Data+ gpio */
+    gpio_af_t af;                   /**< Alternative function */
+} stm32_usb_otg_fshs_config_t;
 
 /**
  * @brief   Get the actual bus clock frequency for the APB buses
@@ -743,6 +789,10 @@ int dma_configure(dma_t dma, int chan, const volatile void *src, volatile void *
 
 #ifdef MODULE_PERIPH_CAN
 #include "candev_stm32.h"
+#endif
+
+#ifdef MODULE_PERIPH_USBDEV
+#include "usbdev_stm32.h"
 #endif
 
 /**

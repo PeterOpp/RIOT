@@ -32,18 +32,11 @@
 extern "C" {
 #endif
 
-#include "vendor/p32mz2048efg100.h"
-
 /**
  * @brief   Set how many increments of the count register per uS
  *          needed by the timer code.
  */
 #define TICKS_PER_US (100)
-
-/**
- * @brief   We are using an External Interrupt Controller (all pic32 devices use this mode)
- */
-#define EIC_IRQ      (1)
 
 /**
  * @name    LED pin configuration
@@ -80,13 +73,6 @@ extern "C" {
  * @brief   Board level initialization
  */
 void board_init(void);
-
-/**
- * @brief   Use the 4th UART for STDIO on this board
- *
- * This is the UART connected to the FTDI USB <-> UART device.
- */
-#define STDIO_UART_DEV      UART_DEV(4)
 
 #ifdef __cplusplus
 }

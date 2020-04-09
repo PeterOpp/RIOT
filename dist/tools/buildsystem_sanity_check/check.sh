@@ -79,10 +79,27 @@ UNEXPORTED_VARIABLES+=('PROGRAMMER_SERIAL')
 UNEXPORTED_VARIABLES+=('STLINK_VERSION')
 UNEXPORTED_VARIABLES+=('PORT_LINUX' 'PORT_DARWIN')
 UNEXPORTED_VARIABLES+=('PORT[ ?=:]' 'PORT$')
+UNEXPORTED_VARIABLES+=('LINKFLAGS' 'LINKER_SCRIPT')
+UNEXPORTED_VARIABLES+=('USEMODULE_INCLUDES')
+UNEXPORTED_VARIABLES+=('OPENOCD_ADAPTER_INIT')
+UNEXPORTED_VARIABLES+=('OPENOCD_CONFIG')
+UNEXPORTED_VARIABLES+=('OPENOCD_RESET_USE_CONNECT_ASSERT_SRST')
+UNEXPORTED_VARIABLES+=('OPENOCD_CMD_RESET_RUN')
+UNEXPORTED_VARIABLES+=('OPENOCD_PRE_FLASH_CMDS' 'OPENOCD_PRE_VERIFY_CMDS')
+UNEXPORTED_VARIABLES+=('PRE_FLASH_CHECK_SCRIPT')
+UNEXPORTED_VARIABLES+=('FLASH_TARGET_TYPE')
+UNEXPORTED_VARIABLES+=('PYOCD_ADAPTER_INIT')
+UNEXPORTED_VARIABLES+=('JLINK_DEVICE' 'JLINK_IF')
+UNEXPORTED_VARIABLES+=('JLINK_PRE_FLASH' 'JLINK_RESET_FILE')
 
 EXPORTED_VARIABLES_ONLY_IN_VARS=()
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('APPDEPS')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('CPU_ARCH')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('CPU_FAM')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('NATIVEINCLUDES')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('UNDEF')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('USEMODULE')
+EXPORTED_VARIABLES_ONLY_IN_VARS+=('TARGET_ARCH')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('TOOLCHAIN')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('WERROR')
 EXPORTED_VARIABLES_ONLY_IN_VARS+=('WPEDANTIC')
@@ -158,6 +175,7 @@ check_cpu_cpu_model_defined_in_makefile_features() {
     # With our without space and with or without ?=
     patterns+=(-e '^ *\(export\)\? *CPU \??\?=')
     patterns+=(-e '^ *\(export\)\? *CPU_MODEL \??\?=')
+    pathspec+=(':!**.md')
     pathspec+=(':!boards/**/Makefile.features')
     pathspec+=(':!cpu/**/Makefile.features')
 
@@ -219,6 +237,22 @@ checks_develhelp_not_defined_via_cflags() {
         | error_with_message "Use DEVELHELP ?= 1 instead of using CFLAGS directly"
 }
 
+
+# Common code in boards should not use $(BOARD) to reference files
+check_files_in_boards_not_reference_board_var() {
+    local patterns=()
+    local pathspec=()
+
+    patterns+=(-e '/$(BOARD)/')
+
+    pathspec+=('boards/')
+    # boards/common/nrf52 uses a hack to resolve dependencies early
+    pathspec+=(':!boards/common/nrf52/Makefile.include')
+
+    git -C "${RIOTBASE}" grep "${patterns[@]}" -- "${pathspec[@]}" \
+        | error_with_message 'Code in boards/ should not use $(BOARDS) to reference files since this breaks external BOARDS changing BOARDSDIR"'
+}
+
 error_on_input() {
     ! grep ''
 }
@@ -233,6 +267,7 @@ all_checks() {
     check_board_insufficient_memory_not_in_makefile
     checks_tests_application_not_defined_in_makefile
     checks_develhelp_not_defined_via_cflags
+    check_files_in_boards_not_reference_board_var
 }
 
 main() {
